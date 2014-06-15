@@ -1,0 +1,58 @@
+@(navstyle:String = "navbar-fixed-top")(implicit l: Lang)
+
+<nav class="navbar navbar-default @navstyle" role="navigation">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <a class="navbar-brand" href="#">Brand</a>
+    </div>
+    <div class="collapse navbar-collapse">
+      <ul class="nav navbar-nav navbar-right f16">
+        <li class="dropdown">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+            <i class="flag @l.code" title="@Messages("lang." + l.code)"></i>
+            <span>@Messages("lang." + l.code)</span>
+            <b class="caret"></b>
+          </a>
+          <ul class="dropdown-menu">
+            @play.api.i18n.Lang.availables(play.api.Play.current).map { lang =>
+              <li class="@(if(l.code == lang.code) "active")">
+                <a href="@(if(l.code != lang.code) routes.Application.changeLocale() +"?lang="+lang.code else "")" class="dropdown-toggle">
+                  <i class="flag @lang.code" title="@Messages("lang." + lang.code)"></i>
+                  <span>@Messages("lang." + lang.code)</span>
+                </a>
+              </li>
+            }
+          </ul>
+        </li>
+        <li class="dropdown" id="currencyList">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+            <span>€ EUR</span>
+            <b class="caret"></b>
+          </a>
+          <ul class="dropdown-menu">
+            <li data-cur="eur">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" >
+                <span>€ EUR</span>
+              </a>
+            </li>
+            <li data-cur="usd">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" >
+                <span>$ USD</span>
+              </a>
+            </li>
+            <li data-cur="gbp">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" >
+                <span>£ GBP</span>
+              </a>
+            </li>
+            <li data-cur="rub">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown" >
+                <span><i class="fa fa-rub"></i> RUB</span>
+              </a>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
