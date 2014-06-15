@@ -307,7 +307,7 @@ VCE,airport,VCE,Europe/Rome,12.19,45.65,Marco Polo,Venice,Italy,,Venedig,Italien
 VCF,airport,VCF,America/Argentina/Salta,-66.15,-40.7,Valcheta,Valcheta,Argentina,,,Argentinien,,Вальчета,Аргентина,AR,0
 VCH,airport,VCH,America/Montevideo,-54.62,-31.77,Vichadero,Vichadero,Uruguay,,,Uruguay,,Вичадеро,Уругвай,UY,0
 PDS,airport,PDS,America/Mexico_City,-100.54,28.63,Piedras Negras,Piedras Negras,Mexico,,Piedras Negras,Mexiko,Педрас-Неграс,Пьедрас Неграс,Мексика,MX,0
-VCL,airport,,Asia/Ho_Chi_Minh,108.703889,15.422222,Chulai,Tamky,Vietnam ,,Tamky,Vietnam,Тамки,,Вьетнам,VN,0
+VCL,airport,TMK,Asia/Ho_Chi_Minh,108.703889,15.422222,Chulai,Tamky,Vietnam,,,Vietnam,Тамки,Тамки,Вьетнам,VN,0
 CLA,airport,CLA,Asia/Dhaka,91.18,23.43,Comilla,Comilla,Bangladesh,,Comilla,Bangladesch,,Комилле,Бангладеш,BD,0
 VCP,airport,VCP,America/Sao_Paulo,-47.13,-23.01,Viracopos (Campinas International),Campinas,Brazil,,,Brasilien,Виракопос,Сан-Паулу,Бразилия,BR,0
 VCR,airport,VCR,America/Caracas,-70.07,10.18,Carora,Carora,Venezuela,,,Venezuela,,Карора,Венесуэла,VE,0
@@ -3672,6 +3672,7 @@ TMG,airport,TMG,Asia/Kuching,118.65,5.4,Tomanggong,Tomanggong,Malaysia,,Tomanggo
 TMH,airport,TMH,Asia/Jakarta,140.3,-6.1,Tanahmerah,Tanahmerah,Indonesia,,,Indonesien,,Танахмерах,Индонезия,ID,0
 TMI,airport,TMI,Asia/Kathmandu,87.19,27.32,Tumling Tar,Tumling Tar,Nepal,,Tumling Tar,Nepal,Тамлингтар,Тамлингтар,Непал,NP,0
 TMJ,airport,TMJ,Asia/Samarkand,67.31,37.29,Termez,Termez,Uzbekistan,,Termiz,Usbekistan,Термез,Термез,Узбекистан,UZ,0
+TMK,airport,TMK,Asia/Ho_Chi_Minh,108.48333,15.566667,Tamky,Tamky,Vietnam,,,Vietnam,,Тамки,Вьетнам,VN,0
 GWY,airport,GWY,Europe/Dublin,-8.94,53.3,Carnmore,Galway,Ireland,,Galway,Irland,,Голуэй,Ирландия,IE,0
 TMM,airport,TMM,Indian/Antananarivo,49.39,-18.11,Tamatave,Tamatave,Madagascar,,Tamatave,Madagaskar,Таматаве,Туамасина,Мадагаскар,MG,0
 TMN,airport,TMN,Asia/Tokyo,175.97,-2.49,Tamana Island,Tamana Island,Kiribati,,,Kiribati,,Тамана,Кирибати,KI,0
@@ -7133,7 +7134,6 @@ GMZ,airport,GMZ,+0.0,-17.214722,28.029722,La Gomera,San Sebas De La Gomera,Spain
 NRC,airport,NRC,America/Indiana/Vevay,-121.07,37.4,Aux Field,Crows Landing,United States,,,Vereinigte Staaten von Amerika,,Кроус Ландинг,США,US,0
 NRA,airport,NRA,Australia/Sydney,146.512222,-34.702222,Narrandera,Narrandera,Australia,,Narrandera,Australien,Наррандера,Наррандера,Австралия,AU,0
 NRG,airport,NRG,Australia/Perth,117.08,-32.93,Narrogin,Narrogin,Australia,,Narrogin,Australien,,Наррогин,Австралия,AU,0
-GMY,airport,GMY,Europe/Berlin,6.37,51.15,Rheindahlen,Rheindahlen,Germany,,,Deutschland,,,Германия,DE,0
 NRE,airport,NRE,Asia/Jayapura,126.72,-3.82,Namrole,Namrole,Indonesia,,Namrole,Indonesien,,Намроле,Индонезия,ID,0
 NRD,airport,NRD,Europe/Berlin,7.23,53.71,Norderney,Norderney,Germany,,,Deutschland,,Нордерней,Германия,DE,0
 NRY,airport,NRY,Australia/Darwin,129.2,-16.05,Newry,Newry,Australia,,,Australien,,Ньюри,Австралия,AU,0
@@ -8602,6 +8602,7 @@ MIL,city,MIL,Europe/Rome,9.1881714,45.463681,,Milan,Italy,,Mailand,Italien,,Ми
 MIA,city,MIA,America/New_York,-80.2264393,25.7889689,,Miami,United States,,Miami,Vereinigte Staaten von Amerika,,Майами,США,US,2
 TLV,city,TLV,Asia/Jerusalem,34.882778,32.009444,,Tel Aviv Yafo,Israel,,Tel Aviv Yafo,Israel,,Тель-Авив,Израиль,IL,2
 TMJ,city,TMJ,Asia/Samarkand,67.2833333,37.2166667,,Termez,Uzbekistan,,Termiz,Usbekistan,,Термез,Узбекистан,UZ,2
+TMK,city,TMK,Asia/Ho_Chi_Minh,108.48333,15.566667,,Tamky,Vietnam,,,Vietnam,,Тамки,Вьетнам,VN,2
 PIP,city,PIP,America/Chicago,-157.5791667,57.5641667,,Pilot Point,United States,,Pilot Point,Vereinigte Staaten von Amerika,,Пайлот Пойнт,США,US,2
 KUL,city,KUL,Asia/Kuala_Lumpur,101.686855,3.139003,,Kuala Lumpur,Malaysia,,Kuala Lumpur,Malaysia,,Куала-Лумпур,Малайзия,MY,2
 TOP,city,TOP,America/Chicago,-95.6890185,39.0558235,,Topeka,United States,,Topeka,Vereinigte Staaten von Amerika,,Топика,США,US,2
