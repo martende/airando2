@@ -193,7 +193,7 @@ for x in cities:
 		cities_ref[cname] = [cities[x],]
 
 ## Blacklist
-blacklist = set(['ALV','WID','MGL','GKE','NGU','NIP'])
+blacklist = set(['ALV','WID','MGL','GKE','NGU','NIP','GMY'])
 for _ in blacklist:
 	if _ in airports:
 		del airports[_]
