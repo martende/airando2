@@ -64,22 +64,93 @@ define([
         }
       }
 
+      val = Math.round(val / ratio ) ;
       if ( currentCurrency == "usd") {
-        val = Math.round(val / ratio ) ;
         return val + "$";
       } else if ( currentCurrency == "rub") {
-        val = Math.round(val / ratio ) ;
         return val + "<i class=\"fa fa-rub\"></i>";
       } else if ( currentCurrency == "eur") {
-        val = Math.round(val / ratio ) ;
         return val + "€";
       } else if ( currentCurrency == "gbp") {
-        val = Math.round(val / ratio ) ;
         return val + "£";
       }
       
       return val;
     },
+
+    getTimeHtml: function(unix_timestamp) {
+      var lang = this.get('lang');
+      var date = new Date(unix_timestamp*1000);
+      var hours = date.getHours();
+      var minutes = date.getMinutes();
+      
+      if ( minutes < 10) minutes = "0"+minutes;
+
+      if ( lang == 'ru' || lang == 'de') {
+        if ( hours   < 10) hours = "0"+hours;
+        return "<time>"+hours +":" +minutes + "</time>";
+      } else {
+        var ampm;
+        if (hours <= 12 ) {
+          ampm = "<span class=\"ampm\">am</span>" ;
+        } else {
+          hours -= 12;
+          ampm = "<span class=\"ampm\">pm</span>";
+        };
+        if ( hours   < 10) hours = "0"+hours;
+        return "<time>"+hours +":" +minutes + ampm +"</time>" ;  
+      }
+
+    },
+
+    humanizeDuration: function(d) {
+      var lang = window.initData.lang;
+      var h = Math.floor(d / 3600);
+      var m = Math.round((d - h *3600) / 60);
+      var o = "";
+      var h10 = h % 10;
+      var m10 = m % 10;
+      if ( lang == 'ru') {
+        if ( h10 == 1 && h != 11) {
+          o = h + " час";
+        } else if ( h10 >= 2 && h10 <= 4 && (h < 10 || h > 20) )  {
+          o = h + " часа";
+        } else if ( h != 0 ) {
+          o = h + " часов";
+        }
+        if ( m10 == 1 && m!=11) {
+          o += " " + m + " минута";
+        } else if ( m10 >= 2 && m10 <= 4 && (m < 10 || m > 20))  {
+          o += " " + m + " минуты";
+        } else if ( m != 0 ) {
+          o += " " + m + " минут";
+        }
+
+      } else if ( lang == "de") {
+        if ( h == 1) {
+          o = h + " Stunde";
+        } else if ( h > 1 ) {
+          o = h + " Stunden";
+        }
+        if ( m == 1) {
+          o += " " + m + " Minute";
+        } else if ( m > 1 ) {
+          o += " " + m + " Minuten";
+        }
+      } else {
+        if ( h == 1 || ( h10 == 1 && h > 20) ) {
+          o = h + " hour";
+        } else if ( h > 1 ) {
+          o = h + " hour";
+        }
+        if ( m == 1 || ( m10 == 1 && h > 20) ) {
+          o += " " + m + " minute";
+        } else if ( m > 1 ) {
+          o += " " + m + " minutes";
+        }
+      }
+      return o;
+    }
 
   });
 

@@ -5,6 +5,12 @@ require.config({
         },
         datepicker: {
             deps: ['jqueryui']
+        },
+        slider: {
+            deps: ['jqueryui']
+        },
+        jqueryui: {
+            deps: ['jquery']
         }
     },
     paths: {
@@ -13,6 +19,8 @@ require.config({
         underscore: 'http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.5.2/underscore',
         backbone: 'http://backbonejs.org/backbone',
         datepicker: 'vendor/bootstrap-datepicker',
+        slider: 'vendor/bootstrap-slider',
+
         //moment: "vendor/moment-with-langs.min"
         moment: "http://momentjs.com/downloads/moment-with-langs",
         slick:  "http://cdn.jsdelivr.net/jquery.slick/1.3.6/slick.min"

@@ -50,92 +50,53 @@
 	<div class="container results">
 		<nav class="navbar navbar-default" role="navigation">
       <form class="navbar-form navbar-left" role="form">
-        <div class="btn-group traveltype-group" data-toggle="buttons">
-        			<label class="btn btn-primary">
-              	<input type="radio" name="options" id="oneway"> One way
-              </label>
-              <label class="btn btn-primary">
-              	<input type="radio" name="options" id="return"> Round Trip
-							</label>
-        </div>  
-        <div class="col-sm-3 col-md-3">
-  					<div class="input-group" id="fromInp">
-      				<span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
-          		<input type="text" placeholder="From" class="form-control" >
-          	</div>
+        <button type="button" class="btn btn-success pull-right" id="search">
+            <i class="fa fa-spinner fa-spin"></i>
+            <span class="glyphicon glyphicon-plane"></span> Search
+        </button>
+
+        <div class="input-group input-loc pull-left" id="fromInp">
+          <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
+          <input type="text" placeholder="From" class="form-control" >
         </div>
-        <div class="col-sm-3 col-md-3">
-  					<div class="input-group" id="toInp">
-      				<span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
-          		<input type="text" placeholder="To" class="form-control" >
-          	</div>
+
+        <div class="input-group input-loc pull-left" id="toInp">
+          <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
+          <input type="text" placeholder="From" class="form-control" >
         </div>
         <span class="date-group input-daterange">
-	          <div class="col-sm-3 col-md-3">
-	  					<div class="input-group" id="fromInp">
+	  				<div class="input-group pull-left" id="fromInp">
 	      				<span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
 	          		<input id="depDate" type="text" placeholder="Departure" class="form-control" >
-	          	</div>
 	          </div>
-	          
-	          <div class="col-sm-3 col-md-3">
-	  					<div class="input-group" >
+	          <div class="input-group pull-left" id="" >
 	      				<span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
-	          		<input id="arvlDate" type="text" placeholder="Arrival" class="form-control" >
-	          	</div>
+	          		<input type="text" placeholder="Arrival" id="arvlDate" class="form-control" >
 	          </div>
 	      </span>  
+        <button type="button" class="btn btn-primary pull-left" id="travelType" data-toggle="button">
+          <span class="toggle-on">
+            <i class="glyphicon glyphicon-plane"></i> One way
+          </span>
+          <span class="toggle-off">
+            <i class="glyphicon glyphicon-transfer"></i> Round trip
+          </span>
+        </button>      
       </form>
+
       <form id="extraFields" class="navbar-form navbar-left" role="form">
-        <div class="btn-group traveltype-group" data-toggle="buttons">
-              <label class="btn btn-primary">
-                <input type="radio" name="options" id="oneway"> One way
-              </label>
-              <label class="btn btn-primary">
-                <input type="radio" name="options" id="return"> Round Trip
-              </label>
-        </div>  
-        <div class="col-sm-3 col-md-3">
-            <div class="input-group" id="fromInp">
-              <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
-              <input type="text" placeholder="From" class="form-control" >
-            </div>
-        </div>
-        <div class="col-sm-3 col-md-3">
-            <div class="input-group" id="toInp">
-              <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
-              <input type="text" placeholder="To" class="form-control" >
-            </div>
-        </div>
-        <span class="date-group input-daterange">
-            <div class="col-sm-3 col-md-3">
-              <div class="input-group" id="fromInp">
-                <span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
-                <input id="depDate" type="text" placeholder="Departure" class="form-control" >
-              </div>
-            </div>
-            
-            <div class="col-sm-3 col-md-3">
-              <div class="input-group" >
-                <span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
-                <input id="arvlDate" type="text" placeholder="Arrival" class="form-control" >
-              </div>
-            </div>
-        </span>  
       </form>
       <div class="bottom">
-  
         <i class="fa fa-circle">
           <i class="fa fa-arrow-down">
           </i>
         </i>
-  
       </div>      
     </nav>
 
       <!-- Example row of columns -->
       <div class="row">
-        <div class="col-md-8">
+        <div class="col-md-9">
           <div id="errorInfo" class="alert alert-danger" style="display:none;">
             <span class="fa fa-warning"></span> <strong>Error in searching!</strong> Try again later.
           </div>
@@ -143,22 +104,160 @@
             <span class="fa fa-warning"></span> <strong>We could not find anything !</strong> Try other directions.
           </div>
 
-          <div id="progressBar">
-            <div class="text-info">
-              <i class="fa fa-spinner fa-spin"></i> <span>Searching in progress</span>
-            </div>
-            <div class="progress">
-                <div class="progress-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+          <div id="progressBar" class="panel panel-default">
+            <div class="panel-body">
+              <div class="text-info">
+                <i class="fa fa-spinner fa-spin"></i> <span>Searching in progress</span>
+              </div>
+              <div class="progress">
+                  <div class="progress-bar progress-bar-success" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+                </div>
               </div>
             </div>
           </div>
-          <div id="flightsList" class="list-group"></div>
+
+
+          <div id="flightsList" class="list-group">
+
+            <div id="flightsHeader">
+              <div class="flrow">
+                <div class="cell airlines"></div>
+                <div class="cell departure">Departure</div>
+                <div class="cell duration">Duration</div>
+                <div class="cell stops-col">Stops</div>
+                <div class="cell arrival">Arrival</div>
+                <div class="cell price-col">Price</div>
+              </div>
+            </div>
+
+            <div id="flightsItems" >
+              <script type="text/template" id="tmplReturnFlight">
+                  <div class="flrow">
+                    <div class="cell airlines _<%- avc %>">
+                      <div class="inner">
+                        <% _.each( avlines, function( avl ){ %>
+                          <img title="<%- avl.name %>" src="<%- avl.img %>">
+                        <% }); %>
+                      </div>    
+                    </div>
+                    <div class="rfcell cell">
+                      <div class="rftable">
+                        <div class="rfrow direct">
+                          <div class="cell departure ">
+                            <%= ft %>
+                            
+                            <span class="iata" title="<%- fname %>"><%- fiata %></span>
+                          </div>
+                          <div class="cell duration _<%- flc %>">
+                            <%- duration %>
+                          </div>
+                          <div class="cell stops-col _<%- flc %>">
+                            <div class="stops">
+                                <%= stopsHtml %>
+                            </div>
+                          </div>
+                          <div class="cell arrival ">
+                            <%= tt %>
+                            <span class="iata" title="<%- tname %>"><%- tiata %></span>
+                          </div>
+                        </div>
+                        <div class="rfrow return">
+                          <div class="cell departure ">
+                            <%= r_ft %>
+                            
+                            <span class="iata" title="<%- fname %>"><%- r_fiata %></span>
+                          </div>
+                          <div class="cell duration _<%- r_flc %>">
+                            <%- r_duration %>
+                          </div>
+                          <div class="cell stops-col _<%- r_flc %>">
+                            <div class="stops">
+                                <%= r_stopsHtml %>
+                            </div>
+                          </div>
+                          <div class="cell arrival ">
+                            <%= r_tt %>
+                            <span class="iata" title="<%- tname %>"><%- r_tiata %></span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="cell price-col">
+                      <%= price %>
+                      <!--
+                      <button class="btn btn-info buy">
+                        <span class="glyphicon glyphicon-shopping-cart"></span>
+                        Buy 
+                      </button>
+                      -->
+                    </div>
+                  </div>
+              </script>
+
+              <script type="text/template" id="tmplDirectFlight">
+                <div class="flrow">
+                  <div class="cell airlines _<%- avc %>">
+                    <div class="inner">
+                      <% _.each( avlines, function( avl ){ %>
+                        <img title="<%- avl.name %>" src="<%- avl.img %>">
+                      <% }); %>
+                    </div>    
+                  </div>
+                  <div class="cell departure ">
+                    <%= ft %>
+
+                    <span class="iata" title="<%- fname %>"><%- fiata %></span>
+                  </div>
+                  <div class="cell duration _<%- flc %>">
+                    <%- duration %>
+                  </div>
+                  <div class="cell stops-col _<%- flc %>">
+                    <div class="stops">
+                        <%= stopsHtml %>
+                    </div>
+                  </div>
+                  <div class="cell arrival ">
+                    <%= tt %>
+                    <span class="iata" title="<%- tname %>"><%- tiata %></span>
+                  </div>
+                  
+                  <div class="cell price-col">
+                    <%= price %>
+                  </div>
+                  <div class="cell price-col">
+                    <button class="btn btn-info buy">
+                      <span class="glyphicon glyphicon-shopping-cart"></span>
+                      Buy 
+                    </button>
+                  </div>
+                </div>
+                <!--
+                <div class="routerow">
+                  <div class="cell direct">
+                    <%  _.each( deproutes, function( t ){  %>
+                    
+                    <div class="pull-left">
+                      <div class="city"><%- t.fromCityName %></div>
+                      <div class="airport"><%- t.fromName %></div>
+                    </div>
+                    <div class="pull-right">
+                      <%= t.dep %>
+                      <div class="depdow"><% t.dep %></div>
+                    </div>
+                    
+                    <% }); %>
+                  </div>
+                </div>
+                -->
+              </script>
+            </div>
+          </div>
+          
         </div>
-        <div class="col-md-4">
-          <h2>Heading</h2>
-          <p>Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
-          <p><a class="btn btn-default" href="#" role="button">View details &raquo;</a></p>
-       </div>
+        <div class="col-md-3" >
+          @filters()
+        </div>
         
       </div>
 
@@ -168,18 +267,6 @@
         <p>&copy; Company 2014</p>
       </footer>
     </div> <!-- /container -->
-
-
-
-  <script type="text/template" id="flitem-template">
-    <div class="flight">
-    	<span class="glyphicon glyphicon-plane"></span>
-      <div>
-        <div><%= fromName %></div>
-        <div><%= origin %></div>
-      </div>
-    </div>
-  </script>
 
 
     <!-- Bootstrap core JavaScript

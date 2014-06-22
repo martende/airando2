@@ -78,33 +78,44 @@ define([
 
         ac._renderMenu = function( ul, items ) {
           var that = this;
-
+          var term = this.term.toLowerCase();
           var city_refs = {};
+          
+          function calcRating(term,item) {
+            if ( term.length == 3 && item.iata.toLowerCase() == term )
+              return "1";
+            if ( item.name.substr(0,term.length).toLowerCase() == term ) 
+              return "2";
+            return "3";
+          }
+
           for ( var i = 0; i < items.length ; i++) {
             if ( items[i].t == 'city' ) {
+              var rating = calcRating(term,items[i]);
               city_refs[items[i].iata]=items[i];
-              items[i].rating = items[i].name + ":" +items[i].iata ;
+              items[i].rating = rating + ":" + items[i].name + ":" +items[i].iata ;
             }
           }
 
           for ( var i = 0; i < items.length ; i++) {
+            var rating = calcRating(term,items[i]);
             if ( items[i].t == 'airport' ) 
               if ( items[i].city_iata in city_refs ) {
-                items[i].rating = city_refs[items[i].city_iata].rating + ":" + items[i].name + ":" +items[i].iata ;
+                items[i].rating = city_refs[items[i].city_iata].rating + ":" + rating + ":" + items[i].name + ":" +items[i].iata ;
                 items[i]._subAirport = true;
               }
               else 
-                items[i].rating = items[i].name + ":" +items[i].iata ;
+                items[i].rating = rating + ":" + items[i].name + ":" +items[i].iata ;
           }
-
-          console.log(_.pluck(items,'name'));
-          console.log(_.pluck(items,'rating'));
 
           items = items.sort(function(x,y) { 
             if ( x.rating > y.rating ) return 1;
             if ( x.rating < y.rating ) return -1;
             return 0;
           } );
+
+          console.log(_.pluck(items,'name'));
+          console.log(_.pluck(items,'rating'));
 
           $.each( items, function( index, item ) {
             that._renderItemData( ul, item );

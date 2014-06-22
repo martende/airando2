@@ -10,7 +10,7 @@
 @color1: #0A3165;	
 // Super knopka (btn-success) color - orange
 @color2: #ff8136;	
-// Main form color, btn-info
+// Main form color, btn-info , brand-color
 @color4:#5488ca; // #346fbb;	
 // HEader text color , border tablici, text btn-primary 
 @color5: #A4C2E8;	
@@ -351,11 +351,28 @@ time {
 		
 	}
 
+	.cell {
+		vertical-align: middle;			
+		display: table-cell;
+	}
+
+	.routerow {
+		display: table;
+		table-layout: fixed;
+		.city {
+			font-weight: bold;
+			color: @color4;
+		}
+		.airport {
+			color: @gray1;
+			font-size: 13px;
+		}
+	}
 
 	.flrow {
 		color: @color4;
 		@airlines_w: 50px;
-		@departure_w: 180px;
+		@departure_w: 150px;
 		@duration_w: 150px;
 		@stops_w:150px;
 		display: table;
@@ -372,25 +389,13 @@ time {
 		cursor:pointer;
 		width:100%;
 		.cell {
-			vertical-align: middle;			
-			display: table-cell;
-			
-			/*
-			border-right: dotted;
-			border-right-color: #ccc;
-			border-right-width: 3px;
-			*/
 			padding-left:10px;
 			padding-right:10px;
+
 			&.rfcell {
 				padding-left:0px;
 				padding-right:0px;
 			}
-			/*
-			&:last-child {
-				border-right:none;
-			}
-			*/
 		}
 		.airlines {width: @airlines_w;}
 		.departure,.arrival {width: @departure_w;}
@@ -752,8 +757,25 @@ time {
 	}
 }
 
-#wBestPrice,#wBestTime,#wSliders {
+#wBestPrice,#wBestTime {
 	display:none;
+}
+
+#wSliders {
+	position: relative;
+	.mask {
+		display: none;
+		background-color: fade(@gray1, 30%);
+		z-index: 1031;
+		position: absolute;
+		top: 0px;
+		bottom: 0px;
+		left: 0px;
+		right: 0px;
+	}
+	&.disabled .mask {
+		display: block;
+	}
 }
 
 #wStats {
@@ -777,6 +799,9 @@ time {
 			.glyphicon-minus,.fa-minus-square-o {
 				display:inline-block;
 			}
+		}
+		.count {
+			float:right;
 		}
 	}
 	.panel-heading:first-child {

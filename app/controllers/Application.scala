@@ -32,7 +32,7 @@ object Application extends Controller with CookieLang with Track {
   def index = Action {
   	implicit request =>
   	
-    var ipInfo:utils.IpLocation = ipGeo.getLocation(request.remoteAddress).get
+    var ipInfo:utils.IpLocation = ipGeo.getLocation(request.remoteAddress).getOrElse(utils.IpLocation.empty)
     
     Logger.info(s"Index IP:${request.remoteAddress} $ipInfo")
 
@@ -143,7 +143,7 @@ object Application extends Controller with CookieLang with Track {
     val currency = request.cookies.get("currency").map(_.value).getOrElse("eur");
 
     actors.Manager.getTravelInfo(id).fold(
-      // NotFound.asInstanceOf[SimpleResult]
+      //NotFound.asInstanceOf[SimpleResult]
       Ok(views.html.result(
         model.TravelRequest(
         "CGN",
