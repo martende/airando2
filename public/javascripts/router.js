@@ -5,19 +5,23 @@ define([
   'underscore',
   'backbone',
   'indexView',
+  'resultsView',
   'indexModel',
   'flightsModel',
-  'flightsView'
+  //'flightsView',
   //'views/MapView',
   //'models/Game'
   
 
-], function($, /*jqueryui ,*/ _ , Backbone,IndexView,IndexModel,FlightsModel,FlightsView){
+], function($, /*jqueryui ,*/ _ , Backbone,
+  IndexView,ResultsView,
+  IndexModel,FlightsModel){
   var AppRouter = Backbone.Router.extend({
     routes: {
       'result/:resultid': 'result',
       '': 'index'
     },
+    
     index: function() {
       console.log("index");
       var m = new IndexModel(window.initData);
@@ -26,17 +30,17 @@ define([
         model: m
       });
     },
+
     result: function(searchId) {
       var m = new IndexModel(window.initData);
-      new IndexView({
-        el:document,
-        model: m
-      });
       var m2 = new FlightsModel([],{idx:searchId,indexModel:m});
-      new FlightsView({
-        el:$("#flightsList"),
-        model: m2
+
+      new ResultsView({
+        el:document,
+        model: m,
+        flightsModel:m2
       });
+
       m2.update();
     }
   });

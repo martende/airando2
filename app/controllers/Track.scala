@@ -25,6 +25,7 @@ import scala.concurrent.{Await,Future}
 // Json
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
+import play.api.libs.json.Reads._
 
 import play.api.i18n.Lang
 
@@ -54,26 +55,30 @@ trait Track extends Controller {
   def track(id:String,cb:String) = Action.async {
     implicit request =>
     Logger.info(s"Start tracking for id=$id")
-    def direct_flights_transform = 
-      (__ \ "direct_flights" ).json.update(
-        __.read[JsArray].map {
+
+    def flights_updater = __.read[JsArray].map {
           df => JsArray( df.value.map {
             fl => 
               val fromIata = (fl \ "origin").as[JsString].value
               val toIata = (fl \ "destination").as[JsString].value
-              val fromName = model.Airports.get(fromIata).fold("") {
-                x => x.name
+              val (fromName,fromCityName) = model.Airports.get(fromIata).fold( ("","") ) {
+                x => (x.name,x.city)
               }
-              val toName = model.Airports.get(toIata).fold("") {
-                x => x.name
+              val (toName,toCityName) = model.Airports.get(toIata).fold( ("","")  ) {
+                x => (x.name,x.city)
               }
               fl.as[JsObject] ++ Json.obj(
                 "fromName" -> fromName,
-                "toName" -> toName
+                "toName" -> toName,
+                "fromCityName" -> fromCityName,
+                "toCityName" -> toCityName
               )  
           }) 
         }
-      )
+    
+    def direct_flights_transform = (__ \ "direct_flights" ).json.update(flights_updater)
+    def return_flights_transform = (__ \ "return_flights" ).json.update(flights_updater)
+
     def tickets_transform = 
       __.json.update(
         __.read[JsObject].map {
@@ -81,7 +86,11 @@ trait Track extends Controller {
             val tkts = (x \ "tickets").asOpt[JsArray].map {
               case JsArray(xs) => Json.obj("tickets" -> JsArray(
                 xs.map {
-                  tkt => tkt.transform(direct_flights_transform).get
+//                  tkt => (tkt.transform(direct_flights_transform).get).transform(return_flights_transform).get
+                  tkt => 
+                   val dft = (tkt transform direct_flights_transform get) 
+                   dft.transform(return_flights_transform).getOrElse( dft )
+
                 }
               )) 
             }
@@ -95,7 +104,7 @@ trait Track extends Controller {
           Logger.error(s"Actor $id not found")
           Future.successful(Ok(s"""<script type="text/javascript">parent.cb$cb({ok:0,error:"404",id:$id});</script>\n""").as("text/html"))
         case Some(fetcher) => 
-          ( fetcher ? actors.Subscribe ).map {      
+          ( fetcher ? actors.Subscribe() ).map {      
             case actors.Connected( enumerator ) => 
               Ok.chunked(
                 enumerator.map {
@@ -115,16 +124,9 @@ trait Track extends Controller {
                           "ok" -> 0
                         )  
                     }
-                    /*
-                    JsArray(x.as[Seq[JsObject]].map {
-                      o => o.transform(
-                        direct_flights_transform
-                      ).get
-                    })
-                    */
                   } catch {
-                    case e => 
-                      Logger.error("Post processing error",e)
+                    case e : Throwable => 
+                      Logger.error("Postprocessing error",e)
                       Json.obj(
                         "error" -> "500",
                         "ok" -> 0

@@ -49,6 +49,7 @@ trait POI {
 
   val location:GeoPoint
 
+  val time_zone:String
 	def distance(t:GeoPoint) = location.distance(t)
 
   def name(implicit l:Lang) = l.code match {
@@ -62,14 +63,17 @@ trait POI {
   val t:String
 
   def contains(q:String):Boolean
+
+  def ratedContains(q:String)(implicit l:Lang):Int
 }
 
 case class Airport(iata:String,
   location:GeoPoint,
+  time_zone:String,
   city_iata:String,
   country_code:String,
+
   // coordinates:Option[Point],
-  //time_zone:String,
 	name_en:String,
   name_de:String,
   name_ru:String,
@@ -96,10 +100,20 @@ case class Airport(iata:String,
 
   def contains(q:String) = 
     Seq(iata,name_en,name_de,name_ru,city_en,city_de,city_ru).exists(_.toLowerCase contains q)
+
+  def ratedContains(q:String)(implicit l:Lang) = 
+    if ( contains(q) ) {
+      if ( q.length == 3 && iata.toLowerCase == q) 1
+      else if ( city.toLowerCase.startsWith(q) ) 2
+      else if ( name.toLowerCase.startsWith(q) ) 3
+      else 4
+    } else -1
+    
 }
 
 case class CityPOI(iata:String,
   location:GeoPoint,
+  time_zone:String,
   country_code:String,
 
   name_en:String,
@@ -121,12 +135,20 @@ case class CityPOI(iata:String,
 
   def contains(q:String) = 
     Seq(iata,name_en,name_de,name_ru).exists(_.toLowerCase contains q)
+
+  def ratedContains(q:String)(implicit l:Lang) = 
+    if ( contains(q) ) {
+      if ( q.length == 3 && iata.toLowerCase == q) 1
+      else if ( name.toLowerCase.startsWith(q) ) 2
+      else 4
+    } else -1
 }
 
 object Airports {
 	
 	def mkDbRecord(iata:String,otype:String,
     location:GeoPoint,
+    time_zone:Option[String],
     city_iata:Option[String],
     country_code:String,
 
@@ -143,9 +165,12 @@ object Airports {
     country_ru:String
 
   ):POI = {
+    //if ( time_zone.isEmpty) {
+    // println(s"IATA:$iata $time_zone -EMPTY TIM")
+    //} 
     otype match {
-      case "airport" => Airport(iata,location,city_iata.getOrElse(iata),country_code,airport_en.get,airport_de.get,airport_ru.get,city_en,city_de,city_ru,country_en,country_de,country_ru)  
-      case "city" => CityPOI(iata,location,country_code,city_en,city_de,city_ru,country_en,country_de,country_ru)
+      case "airport" => Airport(iata,location,time_zone.getOrElse(""),city_iata.getOrElse(iata),country_code,airport_en.get,airport_de.get,airport_ru.get,city_en,city_de,city_ru,country_en,country_de,country_ru)  
+      case "city" => CityPOI(iata,location,time_zone.getOrElse(""),country_code,city_en,city_de,city_ru,country_en,country_de,country_ru)
     }
   }
 
@@ -153,9 +178,9 @@ object Airports {
 
 	implicit val airportReads = (
     (__ \ "iata").read[String] and
-    //(__ \ "time_zone").read[String]  and
     (__ \ "otype" ).read[String] and
     (__ ).read[GeoPoint] and
+    (__ \ "time_zone").readNullable[String]  and
     (__ \ "city_iata" ).readNullable[String] and
 
     (__ \ "country_code" ).read[String] and
@@ -198,10 +223,18 @@ object Airports {
     data.map(x => (x.distance(q) -> x) ).mins(limit).map(_._2)
   }
 
-  def suggest(q:String) = {
+  def suggest(q:String)(implicit l:Lang) = {
     val ql = q.toLowerCase
-    data.filter(_ contains ql).take(20)
+
+    println( ( for (x <- data; r = x.ratedContains(ql) ; if r>0 ) yield r->x )   )
+    ( for (x <- data; r = x.ratedContains(ql); if r>0) yield r->x ).sortBy(_._1).map(_._2).take(20)
+/*
+    data.filter { x => 
+      x.ratedContains(ql) > 0 
+    }.take(20)
+    */
   }
+
   def get(iata:String) = data.find(_.iata==iata)
 
   def exists(iata:String):Boolean = ! get(iata).isEmpty

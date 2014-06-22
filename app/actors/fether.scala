@@ -22,13 +22,14 @@ import play.api._
 import play.api.libs.ws._
 
 // Json
-import play.api.libs.json._
-import play.api.libs.functional.syntax._
+import play.api.libs.json.{JsValue,Json}
+//import play.api.libs.functional.syntax._
 
 // TravelType enum import
 import model.TravelType._
 
 import java.util.Date
+import java.text.SimpleDateFormat
 
 case class StartSearch(tr:model.TravelRequest)
 case class Refresh()
@@ -63,6 +64,7 @@ class ExternalGetter extends Actor {
 
       writeFile(fname.getPath,responseBody)
   }
+
   def getFromCache(f:String):Option[String] = {
     val d1 = f.substring(0,2)
     val d2 = f.substring(2,4)
@@ -76,37 +78,16 @@ class ExternalGetter extends Actor {
     } else None
   }
 
-  case class AVSFlights(
-    origin: String,
-    destination: String,
-    airline: String,
-    duration: Int,
-    number: Int,
-    arrival: Int,
-    aircraft: Option[String],
-    departure: Int,
-    delay: Int
-  )
-
-  case class AVSTicket(
-    sign: String,
-    main_airline:Option[String],
-    total: Float,
-    direct_flights: Seq[AVSFlights],
-    native_prices: Map[String,Float],
-    order_urls: Map[String,Int]
-  )
-
-  case class AVSGate(
-    id: String,
-    label: String
-  )
+  import actors.avsfetcher._
 
   def fetchAviasales(tr:model.TravelRequest) = {
+    val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
     val aParams:Map[String,Seq[String]] = Map( 
       "search[params_attributes][origin_name]" -> Seq(tr.iataFrom), 
       "search[params_attributes][destination_name]" -> Seq(tr.iataTo), 
-      "search[params_attributes][depart_date]" -> Seq(tr.departure.toString), 
+      "search[params_attributes][depart_date]" -> Seq(df.format(tr.departure)), 
+      "search[params_attributes][return_date]" -> Seq( if (tr.traveltype == OneWay ) "" else df.format(tr.arrival) ), 
       "search[params_attributes][range]" -> Seq("0"), 
       "search[params_attributes][adults]" -> Seq("1"), 
       "search[params_attributes][children]" -> Seq("0"), 
@@ -117,34 +98,6 @@ class ExternalGetter extends Actor {
     val token = "67c3abc2accf4c0890e6b7f8192c7971"
     val marker = "33313"
     val signature:String = md5(s"$token:$marker:" +aParams.keys.toSeq.sorted.map(k=>aParams(k).mkString).mkString(":"))
-
-    implicit val avReads =  (
-      (__ \ "origin").read[String] and
-      (__ \ "destination").read[String] and
-      (__ \ "airline").read[String] and
-      (__ \ "duration").read[Int]  and
-      (__ \ "number").read[Int] and
-      (__ \ "arrival").read[Int] and
-      (__ \ "aircraft").readNullable[String] and
-      (__ \ "departure").read[Int] and
-      (__ \ "delay").read[Int]
-    )(AVSFlights)
-
-    implicit val avgReads = (
-      (__ \ "id").read[String] and
-      (__ \ "label").read[String]
-    )(AVSGate)
-
-    implicit val tReads: Reads[AVSTicket] = (
-      (__ \ "sign").read[String] and
-      (__ \ "main_airline").readNullable[String] and
-      (__ \ "total").read[Float] and
-      (__ \ "direct_flights").read[Seq[AVSFlights]] and
-      (__ \ "native_prices").read[Map[String,Float]] and
-      (__ \ "order_urls").read[Map[String,Int]]
-    )(AVSTicket.apply _)
-    
-
 
     val holder = getFromCache(signature).fold { 
       WS.url("http://yasen.aviasales.ru/searches.json") 
@@ -159,51 +112,27 @@ class ExternalGetter extends Actor {
       }
     }(Future successful _)
 
-    holder.map {
-      response => {
-        val data:Seq[AVSTicket] = 
-        (Json.parse(response) \ "tickets" ).validate[Seq[AVSTicket]] match {
-          case s: JsSuccess[_] => s.get
-          case e: JsError => 
-            Logger.error("aviasales.ru Parsing Errors: " + JsError.toFlatJson(e).toString()) 
-            throw play.api.UnexpectedException(Some("aviasales.ru parsing failed"))
-        }
-        
-        val gates:Seq[AVSGate] = 
-        (Json.parse(response) \ "gates_info" ).validate[Seq[AVSGate]] match {
-          case s: JsSuccess[_] => s.get
-          case e: JsError => 
-            Logger.error("aviasales.ru Parsing AVSGate Errors: " + JsError.toFlatJson(e).toString()) 
-            throw play.api.UnexpectedException(Some("aviasales.ru parsing AVSGate failed"))
-        }
-        val curencies: Map[String,Float] = (Json.parse(response) \ "currency_rates" ).validate[Map[String,Float]] match {
-          case s: JsSuccess[_] => s.get
-          case e: JsError => 
-            Logger.error("aviasales.ru Parsing CurentcyRates Errors: " + JsError.toFlatJson(e).toString()) 
-            throw play.api.UnexpectedException(Some("aviasales.ru parsing CurentcyRates failed"))
-        }
-        //val ret = s"len ${data.length}\n" + data
 
-        //Ok(ret + "\n\n\n" )
-        (data,gates,curencies)
-      }
-      //(response.json \ "person" \ "name").as[String]
-    }
+    holder.map(avsfetcher.AVSParser.parse)
 
   }
 
 	def receive = {
+
     case StartSearch(tr) => 
       Logger.info(s"StartSearch ${tr}")
       /*schedule = Akka.system.scheduler.schedule( 0.seconds, 1.second, self, Refresh )*/
       fetchAviasales(tr) onComplete {
-        case Success((tickets,gates,curencies)) => 
+        case Success((tickets,gates,curencies,airlines)) => 
           implicit val avsFormat = Json.format[AVSFlights]
           implicit val ticketFormat = Json.format[AVSTicket]
           implicit val avgFormat = Json.format[AVSGate]
+          implicit val avaFormat = Json.format[AVSAirline]
           
           broadcast(Json.obj("currency_rates" -> Json.toJson(curencies)))
           broadcast(Json.obj("gates" -> Json.toJson(gates)))
+          broadcast(Json.obj("airlines" -> Json.toJson(airlines)))
+          
           broadcast(Json.obj("tickets" -> Json.toJson(tickets)))
 
           channel.end()
@@ -222,11 +151,13 @@ class ExternalGetter extends Actor {
         channel.end()
       }
     */
-    case Subscribe => sender ! Connected(
-      //Enumerator(gates) >>>
-      Enumerator.enumerate(buffer.reverse)  >>> enumerator
-    )
+    case Subscribe() => 
+      sender ! Connected(
+        //Enumerator(gates) >>>
+        Enumerator.enumerate(buffer.reverse)  >>> enumerator
+      )
 
+    case unk => Logger.error(s"Unknown signal $unk")
 	}
 
   def broadcast(msg:JsValue) = {

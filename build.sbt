@@ -8,5 +8,8 @@ libraryDependencies ++= Seq(
   cache
 )     
 
+libraryDependencies += "com.typesafe.akka" %% "akka-testkit" % "2.2.0" % "test"
+
+libraryDependencies += "org.scalatest" % "scalatest_2.10" % "2.2.0" % "test"
 
 play.Project.playScalaSettings

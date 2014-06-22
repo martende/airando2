@@ -29,6 +29,7 @@ case class IpLocation(
  */
 object IpLocation {
 
+  val empty = IpLocation("","",None,None,0,0,None,None,None,None)
   // Option-box a MaxMind Int, where MaxMind uses 0 to indicate None
   private val optionify: Int => Option[Int] = i => if (i == 0) None else Some(i)
 

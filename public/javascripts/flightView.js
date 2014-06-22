@@ -7,13 +7,24 @@ define([
   'slick'
 ], function($, _, Backbone,moment,__){
 
+  var templateDirectFl;
+  var templateReturnFl;
+
   var flightsView = Backbone.View.extend({
     tagName: 'a',
     initialize: function(ops) {
       this.flightsModel = ops.flightsModel;
       this.dateFormat =  "h:mm D MMMM YYYY";
+
+      if ( ! templateDirectFl ) {
+        templateDirectFl = _.template($('#tmplDirectFlight').html());
+        templateReturnFl = _.template($('#tmplReturnFlight').html());
+      }
       
-      this.$el.addClass("list-group-item row flight")
+      this.templateDirectFl = templateDirectFl;
+      this.templateReturnFl = templateReturnFl;
+
+      this.$el.addClass("list-group-item flight")
       //this.listenTo(this.model, 'add', this.addOne);
     },
 
@@ -21,14 +32,23 @@ define([
     render: function() {
       this.$el.empty();
       var df = this.model.get("direct_flights");
-      var trfr = this.renderMainFlight(df);
-      var header = this.renderHeader(df);
-      this.$el.append(header);
+      var rf = this.model.get("return_flights");
+
+      var trfr;
+      if ( rf ) {
+        trfr = this.renderReturnFlight(df,rf); 
+      } else {
+        trfr = this.renderMainFlight(df);
+      }
+      
       this.$el.append(trfr);
-      //this.$el.html(this.template(this.model.toJSON()));
+
+      //var header = this.renderHeader(df);
+      //this.$el.append(header);
+      
       return this;
     },
-    
+    /*
     renderHeader: function(df) {
       var el = $("<div/>",{class:"header"});
 
@@ -50,7 +70,7 @@ define([
         html: [
           $("<span/>",{class:"glyphicon glyphicon-shopping-cart"}),
           " "+ __("Buy") + " ",
-          this.createPriceHtml(bestPrice,'rub')
+          this.createPriceHtml(bestPrice,'eur')
         ]
       });
 
@@ -76,17 +96,24 @@ define([
 
       return el;
     },
+    */
     createPriceHtml:function(val,cur) {
-      var el = $("<div/>",{class: 'price','data-cur' : cur,'data-val':val});
-      el.html(this.flightsModel.indexModel.getPriceText(val,cur));
+      //var el = $("<div/>",{class: 'price','data-cur' : cur,'data-val':val});
+      //el.html(this.flightsModel.indexModel.getPriceText(val,cur));
+
+      var el = "<div class=\"price\" data-cur=\""+cur+"\" data-val=\""+val+"\">" + 
+        this.flightsModel.indexModel.getPriceText(val,cur) + "</div>";
+
+
       return el;
     },
+    
     generateGel: function(label,price) {
       var gel = $("<div/>",{class: 'gate',
         html: [$("<div/>",{class: 'gate-c',
           html: [
             $("<div/>",{class: 'label',html:label}),
-            this.createPriceHtml(price,'rub')
+            this.createPriceHtml(price,'eur')
           ]})
         ]
       });
@@ -115,6 +142,7 @@ define([
 
       return slickWrpr;
     },
+    /*
     renderMainFlight: function(df) {
       var f = df[0];
       var l = df[df.length-1];
@@ -152,55 +180,182 @@ define([
 
       return el;
     },
+    */
+    renderReturnFlight: function(df,rf) {
+      var el = $("<div/>");
+      var avsa = this.model.getAirlines();
+      var f = df[0];
+      var l = df[df.length-1];
+      var r_f = rf[0];
+      var r_l = rf[rf.length-1];
 
-    humanizeDuration: function(d) {
+      if ( avsa.length > 4) avsa = avsa.slice(0,4);
+      
+      var bestPrice = this.createPriceHtml(
+        this.model.getFullPrice(),'eur'
+      );
+      
+      var duration = this.model.getDirectDuration();
+      var r_duration = this.model.getReturnDuration();      
+
+
+      var innerInfo = [];
+      for ( var i = 1 ; i < df.length  ; i++) {
+        innerInfo.push( __("Via") + " " + this.humanizeCityVia(df[i].fromCityName) + ", " + __("stop lasts") + " " + this.humanizeDuration(df[i].delay*60) + ".");
+      }
+
+      var r_innerInfo = [];
+      for ( var i = 1 ; i < rf.length  ; i++) {
+        r_innerInfo.push( __("Via") + " " + this.humanizeCityVia(rf[i].fromCityName) + ", " + __("stop lasts") + " " + this.humanizeDuration(rf[i].delay*60) + ".");
+      }
+
+      var infoText = 
+        this.humanizeDuration(duration) + " " + __("on the way") + 
+        ", "+
+        this.humanizePeresadka(df.length-1);
+
+      var r_infoText = 
+        this.humanizeDuration(r_duration) + " " + __("on the way") + 
+        ", "+
+        this.humanizePeresadka(rf.length-1);
+
+      var flc = df.length-1;
+      var r_flc= rf.length-1;
+      //flc=1;
+      el.html(this.templateReturnFl({
+        'avc':avsa.length,
+        'flc':flc,
+        'stopsHtml' : this.createStopsHtml(flc,infoText,innerInfo),
+        'avlines':avsa,
+        'ft':this.flightsModel.indexModel.getTimeHtml(f.departure),
+        'tt':this.flightsModel.indexModel.getTimeHtml(l.arrival),
+        'fiata': f.origin,
+        'tiata': l.destination,
+        'fname': f.fromCityName,
+        'tname': l.toCityName,
+        'duration': this.humanizeDuration(duration),
+        
+        'price': bestPrice,
+        
+        'r_flc':r_flc,
+        'r_fiata': r_f.origin,
+        'r_tiata': r_l.destination,
+        'r_ft':this.flightsModel.indexModel.getTimeHtml(r_f.departure),
+        'r_tt':this.flightsModel.indexModel.getTimeHtml(r_l.arrival),
+        'r_stopsHtml':this.createStopsHtml(r_flc,r_infoText,r_innerInfo),
+        'r_duration':this.humanizeDuration(r_duration),
+      }));
+      return el;
+    },
+
+    renderMainFlight: function(df) {
+      var el = $("<div/>");
+      var avsa = this.model.getAirlines();
+      var f = df[0];
+      var l = df[df.length-1];
+      if ( avsa.length > 4) avsa = avsa.slice(0,4);
+      var bestPrice = this.createPriceHtml(
+        this.model.getFullPrice(),'eur'
+      );
+      
+      var duration = this.model.getDirectDuration();
+
+      var innerInfo = [];
+      for ( var i = 1 ; i < df.length  ; i++) {
+        innerInfo.push( __("Via") + " " + this.humanizeCityVia(df[i].fromCityName) + ", " + __("stop lasts") + " " + this.humanizeDuration(df[i].delay*60) + ".");
+      }
+
+      var infoText = 
+        this.humanizeDuration(duration) + " " + __("on the way") + 
+        ", "+
+        this.humanizePeresadka(df.length-1);
+
+      var flc = df.length-1;
+      var deproutes = [];
+      for ( var i = 0 ; i < df.length  ; i++) {
+        deproutes.push({
+          dep: this.flightsModel.indexModel.getTimeHtml(df[i].departure),
+          avl: this.flightsModel.indexModel.getTimeHtml(df[i].arrival),
+          fromIata: df[i].origin,
+          toIata: df[i].destination,
+          fromCityName: df[i].fromCityName,
+          toCityName: df[i].toCityName,
+          fromName: df[i].fromName,
+          toName: df[i].toName,
+          name: 1,
+          img:1
+        });
+      }
+//      console.log(deproutes);
+
+      //flc=1;
+      el.html(this.templateDirectFl({
+        'avc':avsa.length,
+        'flc':flc,
+        'stopsHtml' : this.createStopsHtml(flc,infoText,innerInfo),
+        'avlines':avsa,
+        'ft':this.flightsModel.indexModel.getTimeHtml(f.departure),
+        'tt':this.flightsModel.indexModel.getTimeHtml(l.arrival),
+        'fiata': f.origin,
+        'tiata': l.destination,
+        'fname': f.fromCityName,
+        'tname': l.toCityName,
+        'duration': this.humanizeDuration(duration),
+        'price': bestPrice,
+        'deproutes': deproutes
+      }));
+      return el;
+    },
+    createStopsHtml: function(n,infoText,i) {
+      var m = "&#xf068;";
+      var o = "&#xf10c;"
+      if ( n == 0 ) {
+        return "<span title=\""+infoText+"\">"+m+m+m+m+m+m+m+"</span>";
+      } else if ( n == 1 ) {
+        return "<span title=\""+infoText+"\">"+m+m+m+"<span title=\""+i[0]+"\">"+o+"</span>"+m+m+m+"</span>";       
+      } else if ( n == 2 ) {
+        return "<span title=\""+infoText+"\">"+m+m+
+          "<span title=\""+i[0]+"\">"+o+"</span>"+m+
+          "<span title=\""+i[1]+"\">"+o+"</span>"+
+          m+m+"</span>";
+      } else if ( n == 3 ) {
+        return "<span title=\""+infoText+"\">&#xf068;&#xf10c;&#xf068;&#xf10c;&#xf068;&#xf10c;&#xf068;</span>";       
+      }
+    },
+    humanizeCityVia: function(city) {
       var lang = window.initData.lang;
+      if ( lang == 'ru') {
+        if ( city.charAt(city.length-1) == "а") {
+          return city.substr(0,city.length-1) + "у";
+        }
+      }
+      return city;
+    },
+    shortDurationHumanization: {
+      'ru':["ч","м"],
+      'en':["h","m"],
+      'de':["s","m"],
+    },
+    humanizeDurationShort: function(d) {
+      var lang = window.initData.lang;
+      var hum = this.shortDurationHumanization[lang] || hum['en'];
+
       var h = Math.floor(d / 3600);
       var m = Math.round((d - h *3600) / 60);
       var o = "";
-      var h10 = h % 10;
-      var m10 = m % 10;
-      if ( lang == 'ru') {
-        if ( h10 == 1 && h != 11) {
-          o = h + " час";
-        } else if ( h10 >= 2 && h10 <= 4 && (h < 10 || h > 20) )  {
-          o = h + " часа";
-        } else if ( h != 0 ) {
-          o = h + " часов";
-        }
-        if ( m10 == 1 && m!=11) {
-          o += " " + m + " минута";
-        } else if ( m10 >= 2 && m10 <= 4 && (m < 10 || m > 20))  {
-          o += " " + m + " минуты";
-        } else if ( m != 0 ) {
-          o += " " + m + " минут";
-        }
-        o += " в пути"
-      } else if ( lang == "de") {
-        if ( h == 1) {
-          o = h + " Stunde";
-        } else if ( h > 1 ) {
-          o = h + " Stunden";
-        }
-        if ( m == 1) {
-          o += " " + m + " Minute";
-        } else if ( h > 1 ) {
-          o += " " + m + " Minuten";
-        }
-      } else {
-        if ( h == 1 || ( h10 == 1 && h > 20) ) {
-          o = h + " hour";
-        } else if ( h > 1 ) {
-          o = h + " hour";
-        }
-        if ( m == 1 || ( m10 == 1 && h > 20) ) {
-          o += " " + m + " minute";
-        } else if ( h > 1 ) {
-          o += " " + m + " minutes";
-        }
+      
+      if (h) o = h + hum[0];
+      if (m) {
+        if (o) o+=" ";
+        o += m + hum[1];
       }
+
       return o;
     },
+    humanizeDuration: function(d) {
+      return this.flightsModel.indexModel.humanizeDuration(d);
+    },
+    
     peresadkaHumanization: {
       'ru' : ["прямой перелет","пересадка","пересадки","пересадок"],
       'de' : ["Direktflug","Stopp","Stopps"],

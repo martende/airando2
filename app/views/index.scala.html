@@ -52,14 +52,14 @@ arrival:String,departure:String)(implicit l: Lang)
         	<form class="form-inline" role="form">
         		<h2>Anyway anyday</h2>
             <div class="traveltype-group">
-              <div class="btn-group" data-toggle="buttons">
-                <label class="btn btn-primary">
-                  <input type="radio" name="options" id="oneway"> One way
-                </label>
-                <label class="btn btn-primary">
-                  <input type="radio" name="options" id="return"> Round Trip
-                </label>
-              </div>
+              <button type="button" class="btn btn-info" id="travelType" data-toggle="button">
+                <span class="toggle-on">
+                  <i class="glyphicon glyphicon-plane"></i> One way
+                </span>
+                <span class="toggle-off">
+                  <i class="glyphicon glyphicon-transfer"></i> Round trip
+                </span>
+              </button>
             </div>
         		<div class="place-group">
 	        		<div class="form-group">
@@ -89,7 +89,7 @@ arrival:String,departure:String)(implicit l: Lang)
                 </div>
               </div>
            </div>
-	         	<button type="button" class="btn btn-lg btn-success search">
+	         	<button type="button" class="btn btn-lg btn-success" id="search">
                 <i class="fa fa-spinner fa-spin"></i>
 	         		  <span class="glyphicon glyphicon-plane"></span> Search
 	         	</button>

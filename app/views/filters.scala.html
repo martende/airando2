@@ -1,0 +1,188 @@
+@()(implicit l: Lang)
+
+<div class="offer offer-radius" id="wBestPrice">
+  <div class="shape">
+    <div class="shape-text">
+      <i class="fa fa-money"></i>
+    </div>
+  </div>
+  <div class="offer-content">
+    <h4>
+      Best Price
+    </h4>
+    <div>
+      <button class="btn btn-info pull-right">Details</button>
+      Price:
+      <div class="price" data-cur="eur" data-val="0">0€</div>
+      <br>
+      Duration: 
+      <time></time>
+      <div class="clearfix"></div>
+    </div>
+  </div>
+</div>
+<div class="offer offer-radius" id="wBestTime">
+  <div class="shape">
+    <div class="shape-text">
+      <i class="fa fa-clock-o"></i>
+    </div>
+  </div>
+  <div class="offer-content">
+    <h4>
+      Best Time
+    </h4>
+    <div>
+      <button class="btn btn-info pull-right">Details</button>
+      Price:
+      <div class="price" data-cur="eur" data-val="0">0€</div>
+      <br>
+      Duration: 
+      <time></time>
+      <div class="clearfix"></div>                
+    </div>
+  </div>
+</div>
+<div class="panel panel-primary" id="wStats">
+  <div id="wSlidersHeader" class="panel-heading">Total: <span class="count">0</span></div>
+  <div class="panel-body disabled" id="wSliders" >
+    <div class="mask"></div>
+    Max flight price:<br>
+
+    <div id="slPrice" ></div>
+    <br><br>
+
+    Max flight duration:<br>
+
+    <div id="slFlDuration" ></div>
+    <br><br>
+
+    Stopps duration:<br>
+
+    <div id="slStopDuration" ></div>
+    <br><br>
+
+    Departure time:<br>
+
+    <div id="slDepTime" ></div>
+
+    <br><br>
+
+    Arrival time:<br>
+
+    <div id="slAvlTime" ></div>
+
+  </div>
+  <div id="groupByStopsHeader" class="panel-heading" data-toggle="collapse" href="#groupByStops">
+    <i class="fa fa-plus-square-o"></i>
+    <i class="fa fa-minus-square-o"></i>
+    Stopps <span class="count"></span>
+  </div>
+  <div class="panel-body for-list collapse in" id="groupByStops">
+    <label class="disabled">
+      <input type="radio" disabled="disabled" name="stops" value="0">
+            <span class="info">Nonstop</span>
+            <div class="price pull-right" data-cur="eur" data-val="0">0€</div>
+    </label>
+    <label class="disabled">
+      <input type="radio" disabled="disabled" name="stops" value="1">
+            <span class="info">One stop</span>
+            <div class="price pull-right" data-cur="eur" data-val="0">0€</div>
+    </label>
+    <label class="disabled" class="checked">
+      <input type="radio" disabled="disabled" name="stops" checked value="2">
+            <span class="info">Any stop</span>
+            <div class="price pull-right" data-cur="eur" data-val="0">0€</div>
+    </label>
+
+  </div>
+  <div class="panel-heading collapsed" data-toggle="collapse" href="#avlinesList">
+    <i class="fa fa-plus-square-o"></i>
+    <i class="fa fa-minus-square-o"></i>
+    Avialines: <span class="count"></span>
+  </div>
+  <div id="avlinesList" class="panel-body for-list collapse">
+    <script type="text/template" id="tmplAirline">
+        <% _.each( ret, function( avl ){ %>
+        <label>
+          <input type="checkbox" value="<%- avl.id %>">
+          <span class="info">
+            <% if (avl.img !== null) { %>
+            <img src="<%- avl.img %>" title="<%- avl.name %>">
+            <% } %>
+            <%- avl.name %>
+          </span>
+          <% if (avl.price !== null) { %>
+            <div class="price pull-right" data-cur="eur" data-val="<%- avl.price %>"><%- avl.priceText %></div>
+          <% } %>
+        </label>
+        <% }); %>
+    </script>           
+  </div>
+
+  <div class="panel-heading collapsed" data-toggle="collapse" href="#aliancesList">
+    <i class="fa fa-plus-square-o"></i>
+    <i class="fa fa-minus-square-o"></i>
+    Aliances:
+  </div>
+  <div id="aliancesList" class="panel-body for-list collapse">
+    <script type="text/template" id="tmplAliance">
+        <% _.each( ret, function( avl ){ %>
+        <label>
+        <input type="checkbox" value="<%- avl.id %>">
+          <span class="info">
+            <%- avl.name %>
+          </span>
+          
+          <% if (avl.price !== null)  { %>
+          
+          <div class="price pull-right" data-cur="eur" data-val="<%- avl.price %>"><%- avl.priceText %></div>
+
+          <% } %>
+
+        </label>
+        <% }); %>
+    </script>           
+  </div>
+
+  <div class="panel-heading collapsed" data-toggle="collapse" href="#depAirportsList">
+    <i class="fa fa-plus-square-o"></i>
+    <i class="fa fa-minus-square-o"></i>
+    Departure Airports:
+  </div>
+  <div id="depAirportsList" class="panel-body for-list collapse">
+    <script type="text/template" id="tmplAirport">
+        <% _.each( ret, function( avl ){ %>
+        <label>
+        <input type="checkbox" value="<%- avl.id %>">
+          <span class="info">
+            <%- avl.name %>
+          </span>
+          <% if (avl.price !== null)  { %>                    
+          <div class="price pull-right" data-cur="eur" data-val="<%- avl.price %>"><%- avl.priceText %></div>
+          <% } %>
+        </label>
+        <% }); %>
+    </script>           
+  </div>
+
+  <div  class="panel-heading collapsed" data-toggle="collapse" href="#arvlAirportsList">
+    <i class="fa fa-plus-square-o"></i>
+    <i class="fa fa-minus-square-o"></i>
+    Arival Airports:
+  </div>
+  <div id="arvlAirportsList" class="panel-body for-list collapse">
+  </div>
+
+  <div class="panel-heading collapsed" data-toggle="collapse" href="#stopAirportsList">
+    <i class="fa fa-plus-square-o"></i>
+    <i class="fa fa-minus-square-o"></i>
+    Via Airports:
+  </div>
+  <div id="stopAirportsList" class="panel-body for-list collapse">
+  </div>
+
+</div>
+
+
+<p>Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
+<p><a class="btn btn-default" href="#" role="button">View details &raquo;</a></p>
