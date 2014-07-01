@@ -1,0 +1,9 @@
+#!/usr/bin/perl
+#http://edgecastcdn.net/809D25/overmind.jetradar.com/images/cities/IST-7bacec30ecf4e0d65750bb78b2d2bf42c91dca13.jpg
+$u=$ARGV[0];
+($c)= $u=~/cities\/(...)/;
+print "X:$c\n";
+
+system("wget $u -O t.jpg");
+system("convert t.jpg $c.png");
+unlink "t.jpg";
