@@ -1,0 +1,2 @@
+#!/usr/bin/perl
+$c=$ARGV[0];system("wget http://cdn.momondo.net/logos/airlines/"."\L$c"."-small.png -O \U$c".".png");

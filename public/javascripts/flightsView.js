@@ -3,17 +3,22 @@ define([
   'underscore',
   'backbone',
   'flightView',
-  'slider'
+  'slider',
+  'endless'
 ], function($, _, Backbone,FlightView){
 
   var flightsView = Backbone.View.extend({
 
     initialize: function(ops) {
+      this.lastSort = "";
+      this.firstRendered = 30;
+      this.renderedIdx = 0;
+      this.rendered    = 0;
+
       this.filterModel = ops.filterModel;
 
       this.maxticks = 5;
       this.tick     = 0 ;
-      this.rendered = 0;
 
       this.$flitems = $("#flightsItems");
       this.$errorInfo = $("#errorInfo");
@@ -30,33 +35,107 @@ define([
       this.listenTo(this.model, 'error',this.progressError);
 
       this.listenTo(this.filterModel,"change",this.onFilterChanged);
+
     },
 
-    onFilterChanged: function(m,v,d) {
-      this.$flitems.empty();
-      this.rendered = 0;
-      for ( var i = 0; i < this.model.length ; i++) {
+    onScroll: function() {
+      var tr = 10;
+      for ( var i = this.renderedIdx+1,rendered=0 ; i < this.model.length && rendered < tr ; i++, rendered++) {
         var flitem = this.model.at(i);
         if ( this.filterModel.pass(flitem)) {
-          this.rendered++;
-          if ( this.rendered >= 30 ) return;
-
-          this.$flitems.append(flitem.view.el);
-        }
+          rendered++;
+          flitem.view.appendTo(this.$flitems);
+          this.renderedIdx = i; 
+        } 
       }
     },
-
+    onFilterChanged: function(m,v,d) {
+      this.reflectHeader();
+      this.$flitems.empty();
+      this.renderedIdx = 0;
+      var rendered = 0;
+      for ( var i = 0; i < this.model.length ; i++) {
+        var flitem = this.model.at(i);
+        if ( rendered < this.firstRendered ) {
+          if ( this.filterModel.pass(flitem)) {
+            rendered++;
+            flitem.view.appendTo(this.$flitems);
+          } 
+          this.renderedIdx = i; 
+        }
+      }
+      this.rendered = rendered;
+    },
+    reflectHeader: function() {
+      var srt = this.filterModel.get("srt") || 'asc';
+      var srtField = this.filterModel.get("srtField") || 'price-col';
+      $(".cell").removeClass("asc").removeClass("desc");
+      $(".cell."+srtField,this.$headers).addClass(srt);
+      var sign = srt == "desc" ? -1 : 1;
+      var lastSort = srt+":" + srtField;
+      if ( lastSort !=  this.lastSort) {
+        if ( srtField == "price-col") {
+          this.model.comparator = function(m) {
+            return sign * m.getFullPrice();
+          };  
+        } else if ( srtField == "departure") {
+          this.model.comparator = function(m) {
+            return sign * m.get("direct_flights")[0].departure;
+          };
+        } else if ( srtField == "arrival") {
+          this.model.comparator = function(m) {
+            var df = m.get("direct_flights");
+            return sign * df[df.length-1].arrival;
+          };
+        } else if ( srtField == "duration") {
+          this.model.comparator = function(m) {
+            return sign * m.getAvgDuration();
+          };
+        } else if ( srtField == "stops-col") {
+          this.model.comparator = function(m) {
+            return sign * m.getStopsCnt();
+          };
+        }
+        
+        this.model.sort();
+        this.lastSort = lastSort;  
+      }
+    },
+    initHeader: function() {
+      var self = this;
+      this.$headers.show();
+      var $sortables = $(".sortable",this.$headers);
+      $sortables.append($("<i>",{class:"fa fa-caret-down"}));
+      $sortables.append($("<i>",{class:"fa fa-caret-up"}));
+      this.reflectHeader();
+      $sortables.click(function(e) {
+        var $column = $(e.target).closest(".sortable");
+        var classes = $column.attr('class').split(/\s+/);
+        var clist = _.filter(classes,function(v) {
+          return v != "sortable" && v!= "cell"
+        });
+        var srtField = clist[0];
+        var srt = _.some(clist,function(v) { return v == "asc"}) ? "desc" : "asc";
+        self.filterModel.set({
+          'srtField' : srtField,
+          'srt'      : srt
+        })
+      });
+    },
     addOne: function(flitem) {
       if ( this.rendered == 0) {
-        this.$headers.show();//("display","block");
+        this.initHeader();
       }
-      this.rendered++;
       var view = new FlightView({model: flitem,flightsModel:this.model});
       view.render();
       flitem.view = view;
-      if ( this.rendered >= 30 ) return;
-      this.$flitems.append(view.el);
-
+      if ( this.rendered < this.firstRendered ) {
+        if ( this.filterModel.pass(flitem)) {
+          this.rendered++;
+          view.appendTo(this.$flitems);
+        }
+        this.renderedIdx = this.model.length - 1;
+      }
     },
 
     progressError:function(error) {
@@ -74,6 +153,12 @@ define([
 
           if ( self.model.length == 0 ) {
             self.$noroutesInfo.fadeIn();
+          } else {
+            $(window).endlessScroll({
+              //bottomPixels: 500,
+              ceaseFireOnEmpty: false,
+              callback: self.onScroll.bind(self)
+            });
           }
 
         });

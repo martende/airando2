@@ -95,6 +95,7 @@ define([
 
     minPriceShown: false,
     processBestPriceWidget: function() {
+      var self = this;
       var im = this.model.indexModel;
       var m = this.model.getMinPriceObj();
       if ( m ) {
@@ -116,12 +117,30 @@ define([
           $("#wBestPrice").fadeIn();
         }
       }
+
+      $("#wBestPrice button").unbind("click").click(function() {
+        self.filterModel.set({
+          srtField:'price-col',
+          srt:'asc'
+        });
+        
+        var $flr = $("#flightsItems .flrow:first");
+        var $t = $flr.next();
+        if ( $t.is(":hidden")) {
+          $("button",$flr).fadeOut();
+          $t.slideDown();
+        } else {
+          $flr.add($flr.next()).effect( "highlight", 
+          {}, 1000 );
+        }
+      });
     },
 
     minTimeShown: false,
     processBestTimeWidget: function() {
       var m = this.model.getMinTimeObj();
       var im = this.model.indexModel;
+      var self = this;
 
       if ( m ) {
         var price = m.getFullPrice();
@@ -142,6 +161,23 @@ define([
           $("#wBestTime").fadeIn();
         }
       }
+
+      $("#wBestTime button").unbind("click").click(function() {
+        self.filterModel.set({
+          srtField:'duration',
+          srt:'asc'
+        });
+        
+        var $flr = $("#flightsItems .flrow:first");
+        var $t = $flr.next();
+        if ( $t.is(":hidden")) {
+          $("button",$flr).fadeOut();
+          $t.slideDown();
+        } else {
+          $flr.add($flr.next()).effect( "highlight", 
+          {}, 1000 );
+        }
+      });
     },
 
     processGroupByStops: function() {

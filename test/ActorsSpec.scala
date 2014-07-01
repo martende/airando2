@@ -3,6 +3,7 @@ import akka.actor.Actor
 import akka.actor.Props
 import akka.testkit.TestKit
 import org.scalatest.WordSpecLike
+import org.scalatest.FunSpecLike
 import org.scalatest.Matchers
 import org.scalatest.FunSuite
 import org.scalatest.BeforeAndAfterAll
@@ -47,9 +48,230 @@ class AVSParserSpec extends FunSuite {
     assert(Math.floor(ab.native_prices("203")) == 65.0 )
     assert(Math.floor(ab.native_prices("62")) == 50.0 )
 
+    assert(ab.order_urls("20")=="avs:e6379cc6-2674-47c0-bd43-61ce4bcd8dd4:20300053")
   }
 
 }
+
+class AVSParserSpecLive extends FunSuite with ScalaFutures {
+  implicit override def patienceConfig =
+  PatienceConfig(timeout = Span(1, Seconds), interval = Span(50, Millis))
+
+  import actors.avsfetcher._
+  test("MSQ airport") {
+    import scala.concurrent._
+
+    val r = new AvsCacheParser() {
+      override lazy val cacheDir="./cache/"
+    }.fetchAviasalesCheapest("MSQ")
+
+    whenReady(r) { 
+      r => assert(r.length > 10)
+        
+    }
+    
+
+
+  }
+
+}
+
+
+class ManagerSpec(_system: ActorSystem) extends TestKit(_system) 
+  with ImplicitSender with WordSpecLike with ScalaFutures 
+  with BeforeAndAfterAll
+{
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(1, Seconds), interval = Span(50, Millis))
+  def this() = this(ActorSystem("testActorSystem", ConfigFactory.load()))
+  implicit val app: FakeApplication = FakeApplication()
+  // Execution context statt import ExecutionContext.Implicits.global
+  implicit val ec = _system.dispatcher
+
+  override def beforeAll {
+    Play.start(app)
+  }
+  override def afterAll {
+    TestKit.shutdownActorSystem(system)
+  }
+
+  "Manager Actor " must {
+    "getCheapest(MSQ)" in {
+      val r = actors.Manager.getCheapest("MSQ")
+
+      whenReady(r) { 
+        r => assert(! r.isEmpty )
+      }
+
+    }
+  }
+
+}
+
+class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system) 
+  with ImplicitSender with WordSpecLike with ScalaFutures 
+  with BeforeAndAfterAll
+{
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(1, Seconds), interval = Span(50, Millis))
+  def this() = this(ActorSystem("testActorSystem", ConfigFactory.load()))
+  implicit val app: FakeApplication = FakeApplication()
+  // Execution context statt import ExecutionContext.Implicits.global
+  implicit val ec = _system.dispatcher
+
+  override def beforeAll {
+    Play.start(app)
+  }
+  override def afterAll {
+    TestKit.shutdownActorSystem(system)
+  }
+
+  "NorvegianAirlinesSpec " must {
+    "t1" in {
+      val fetcher = system.actorOf(Props[actors.NorvegianAirlines])
+
+      fetcher ! "1"
+
+      expectMsgPF() {
+        case "1" => "1"
+      }
+
+    }
+  }
+
+}
+
+class BaseFetcherActorSpec (_system: ActorSystem) extends TestKit(_system) 
+  with ImplicitSender with WordSpecLike with ScalaFutures 
+  with BeforeAndAfterAll
+{
+  import BaseFetcherActorSpec._
+
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(1, Seconds), interval = Span(50, Millis))
+  def this() = this(ActorSystem("testActorSystem", ConfigFactory.load()))
+  implicit val app: FakeApplication = FakeApplication()
+  // Execution context statt import ExecutionContext.Implicits.global
+  implicit val ec = _system.dispatcher
+
+  override def beforeAll {
+    Play.start(app)
+  }
+  override def afterAll {
+    TestKit.shutdownActorSystem(system)
+  }
+
+
+  "BaseFetcherActor " must {
+    "t1" in {
+      val fetcher = system.actorOf(Props[BaseFetcherActorTester])
+
+      fetcher ! 1
+
+      expectMsgPF() {
+        case Some("1\n") => 1
+      }
+
+    }
+    "t2" in {
+
+      val fetcher = system.actorOf(Props[BaseFetcherActorTester])
+
+      fetcher ! 2
+
+      expectMsgPF() {
+        case None => 1
+      }
+
+    }
+    "t3" in {
+      val fetcher = system.actorOf(Props[BaseFetcherActorTester])
+
+      fetcher ! 3
+
+      expectMsgPF() {
+        case Some("13\n2\n") => 1
+      }
+
+    }
+
+    "phantomjs.t1" in {
+      val fetcher = system.actorOf(Props[BaseFetcherActorTester])
+
+      fetcher ! (4,"t1")
+
+      expectMsgPF() {
+        case Some("Hello, world!\n") => 
+      }
+
+    }
+
+    "phantomjs.t2" in {
+      val fetcher = system.actorOf(Props[BaseFetcherActorTester])
+
+      fetcher ! (4,"t2")
+
+      expectMsgPF() {
+        case Some("Example Domain\n") => 
+      }
+
+    }
+
+    "phantomjs.test" in {
+      val fetcher = system.actorOf(Props[BaseFetcherActorTester])
+
+      fetcher ! (4,"t3")
+
+      expectMsgPF() {
+        case None =>         
+      }
+
+    }
+/*
+    "phantomjs.testtimeout" in {
+      val fetcher = system.actorOf(Props[BaseFetcherActorTester])
+
+      fetcher ! (4,"t4")
+
+      expectMsgPF() {
+        case None => 
+      }
+
+    }
+*/
+  }
+
+}
+object BaseFetcherActorSpec {
+  class BaseFetcherActorTester extends actors.BaseFetcherActor {
+    import context.dispatcher
+    def receive = {
+      case 1 => 
+        val s = sender
+        execWithTimeout(Seq("perl","-e",""" print "1"; """)).map {
+          case r => s ! r
+        }
+      case 2 => 
+        val s = sender
+        val f = execWithTimeout(Seq("perl","-e","""sleep(1000); print "1"; """)).map {
+          case r => s ! r
+        }
+      case 3 => 
+        val s = sender
+        execWithTimeout(Seq("perl","-e",""" print "13\n2"; """)).map {
+          case r => s ! r
+        }
+      case (4,x) => 
+        val s = sender
+        execWithTimeout(Seq("./bin/phantomjs","phantomjs/tests/"+x+".js")).map {
+          case r => s ! r
+        }
+
+    }
+  }
+}
+  
+
 
 class FetcherActorSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender
   with WordSpecLike with Matchers with BeforeAndAfterAll with ScalaFutures {
@@ -98,12 +320,12 @@ class FetcherActorSpec(_system: ActorSystem) extends TestKit(_system) with Impli
       }
 
       fetcher ! actors.StartSearch(model.TravelRequest("CGN","BER",model.TravelType.OneWay,
-        new java.util.Date(),new java.util.Date()))
+        new java.util.Date(),new java.util.Date(),1,0,0,model.FlightClass.Economy))
 
       val it = enumerator run Iteratee.fold(List.empty[JsValue]){ (l, e) => e :: l } map { _.reverse }
 
       whenReady(it) { s =>
-        s.length should be (3)
+        s.length should be (4)
         
         assert {
           (s(0) \ "currency_ratesx").asOpt[JsValue].isEmpty
