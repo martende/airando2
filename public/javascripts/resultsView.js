@@ -9,9 +9,11 @@ define([
 ], function($, _, Backbone,SearchFormView,FlightsView,FilterView,FilterModel){
   
   var resultsView = SearchFormView.extend({
+    bindfields: ['adults','childs','infants','flclass'],
     initialize: function(ops) {
-
       resultsView.__super__.initialize.apply(this, arguments);
+
+      this.$menuCtrls = $(".bottom i");
 
       this.filterModel = new FilterModel();
 
@@ -24,6 +26,34 @@ define([
       this.filterView = new FilterView({
         model: ops.flightsModel,
         filterModel:this.filterModel
+      });
+      var m = this.model;
+      for ( var i = 0 ; i < this.bindfields.length ; i++) {
+        var f = this.bindfields[i];
+        $("#"+f).val(this.model.get(f)).change(
+          function(e) {
+            m.set(e.target.id,$(e.target).val());
+          }
+        )
+      }
+      if ( m.get("adults") != 1 || m.get("childs") != 0 ||
+        m.get("infants") != 0 || m.get("flclass") != "economy") {
+        $("#extraFields").show();
+        $("i.fa",this.$menuCtrls).removeClass("fa-arrow-down").addClass("fa-arrow-up");
+        $("i.fa",this.$menuCtrls).removeClass("fa-arrow-up").addClass("fa-arrow-down");      
+      }
+
+      this.$menuCtrls.click(function() {
+        var $t = $("#extraFields");
+        if ( $t.is(":hidden")) {
+          $t.slideDown();
+          $("i.fa",this.$menuCtrls).addClass("fa-arrow-down").removeClass("fa-arrow-up");
+          $("i.fa",this.$menuCtrls).addClass("fa-arrow-up").removeClass("fa-arrow-down");
+        } else {
+          $t.slideUp();
+          $("i.fa",this.$menuCtrls).removeClass("fa-arrow-down").addClass("fa-arrow-up");
+          $("i.fa",this.$menuCtrls).removeClass("fa-arrow-up").addClass("fa-arrow-down");
+        }
       });
 
     },
@@ -57,7 +87,11 @@ define([
           'departure':this.yyyymmdd(m.get('departure')),
           'arrival':this.yyyymmdd(m.get('arrival')),
           'to'   : m.get("to").get("iata"),
-          'from' : m.get("from").get("iata")
+          'from' : m.get("from").get("iata"),
+          'adults' : m.get("adults"),
+          'childs' : m.get("childs"),
+          'infants' : m.get("infants"),
+          'flclass' :m.get("flclass")
         },
         success: function(response) {
           //console.log("response",response);

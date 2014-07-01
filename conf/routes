@@ -9,6 +9,7 @@ GET     /locale                     controllers.Application.changeLocale()
 POST 	/start						controllers.Application.start
 GET		/track/:id					controllers.Application.track(id:String,cb:String)
 GET		/result/:id 				controllers.Application.result(id:Int)
+GET		/r/:id 						controllers.Application.redirect(id:String)
 
 # Map static resources from the /public folder to the /assets URL path
 GET     /assets/*file               controllers.Assets.at(path="/public", file)

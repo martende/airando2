@@ -1,5 +1,5 @@
 @(from:model.POI,to:Option[model.POI],traveltype:String,currency:String,
-arrival:String,departure:String)(implicit l: Lang)
+arrival:String,departure:String,cheapest:Iterable[model.FlightInfo])(implicit l: Lang)
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -100,22 +100,34 @@ arrival:String,departure:String)(implicit l: Lang)
     <div class="container">
       <!-- Example row of columns -->
       <div class="row">
-        <div class="col-md-4">
+        <div class="col-md-3 cheaps-box">
           <h2>Cheap flights</h2>
-          <p>Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
-          <p><a class="btn btn-default" href="#" role="button">View details &raquo;</a></p>
+          <ul class="list-group f16">
+          @for(c <- cheapest) {
+            <li class="list-group-item"><i class="flag @c.to.country_code.toLowerCase"></i>@c.to.city <span class="price" data-val="@c.priceEur" data-cur="eur">$@c.priceEur</span>
+              <div class="clearfix"></div>
+            </li>
+          } 
+          </ul>
         </div>
-        <div class="col-md-4">
-          <h2>Heading</h2>
-          <p>Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
+        <div class="col-md-3 popdir-box">
+          <h2>BKK</h2>
+          <img src="/assets/images/poi/BKK.png">
+          Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
           <p><a class="btn btn-default" href="#" role="button">View details &raquo;</a></p>
        </div>
-        <div class="col-md-4">
-          <h2>Heading</h2>
-          <p>Donec sed odio dui. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Vestibulum id ligula porta felis euismod semper. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus.</p>
+        <div class="col-md-3 popdir-box">
+          <h2>DEL</h2>
+          <img src="/assets/images/poi/DEL.png">
+          Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
           <p><a class="btn btn-default" href="#" role="button">View details &raquo;</a></p>
-        </div>
-      </div>
+       </div>
+        <div class="col-md-3 popdir-box">
+          <h2>FRA</h2>
+          <img src="/assets/images/poi/FRA.png">
+          Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
+          <p><a class="btn btn-default" href="#" role="button">View details &raquo;</a></p>
+       </div>
 
       <hr>
 

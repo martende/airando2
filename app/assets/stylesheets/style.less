@@ -10,6 +10,7 @@
 @color1: #0A3165;	
 // Super knopka (btn-success) color - orange
 @color2: #ff8136;	
+@color2t: #fff;	  // Text color for @color2
 // Main form color, btn-info , brand-color
 @color4:#5488ca; // #346fbb;	
 // HEader text color , border tablici, text btn-primary 
@@ -18,13 +19,14 @@
 
 
 @gray1: #a7a7a7;
-
+@gray2: #ccc;
+@gray3: #eee;
 
 @color_4: #0ca7c6; // magenda price color , 0 stop color 
 @color_5: #837e8f; // 1 stop color gray
 @color6: #a32017; // 2 stops color red
 @color7: #c95216; // Blood orange - Time in table color
-
+@color7t: #fff;   // Text color for @color7
 @hlcolor:#f5f5f5;		// Standart highlighting color
 
 @bg1:#fff; 	// Main table BG 
@@ -40,7 +42,12 @@
   border-radius: @radius;
 }
 
-
+.rotate (@deg) {
+	-webkit-transform: rotate(@deg);
+	-moz-transform: 	 rotate(@deg);
+	-ms-transform: 		 rotate(@deg);
+	-o-transform: 		 rotate(@deg);
+}
 .notextselect {
 	-webkit-touch-callout: none;
 	-webkit-user-select: none;
@@ -105,7 +112,7 @@
 	    text-decoration: none;
 	    color: @dropdown-link-hover-color;
 	    //background-color: @dropdown-link-hover-bg;
-	    background-color:#eee;
+	    background-color:@gray3;
 	  }
 
 	  	.iata {
@@ -207,9 +214,10 @@ time {
 	> .ampm {
 		font-size: 9px;
 		margin-left: 2px;
-		line-height: 20px;
+		line-height: 1;
 		text-transform: uppercase;
-		vertical-align: top;
+		position: relative;
+		top: -5px;
 	}
 }
 .price {
@@ -226,11 +234,23 @@ time {
 	box-shadow: 10px 10px 90px 30px @color4 inset;	
 	padding-top: 10px;
 	.navbar {
+		color:#fff;
                 // display:none;
-		background-color: transparent; 
-		border-style: none;
-		color: @color5;
-	
+		//background-color: transparent; 
+		//border-style: none;
+		//color: @color5;
+/*
+		
+		
+		border-color: #072247;
+		border-style: solid;
+		
+		border-width: 1px;
+*/
+		background-color: @color4;
+		border-radius: 5px;
+		padding: 0px 20px 0px 20px;
+
 		@eldif: 8px;
 		min-width: 1100px;
 		#extraFields {
@@ -243,25 +263,50 @@ time {
 		}
 		.bottom {
 			.notextselect;
+			@bd: 20px;
+			@bm: 15px;
 			text-align: center;
 			/*i,span {
 				font-size: 25px;
 				color:red;
 			}*/
-			i.fa-circle {
-				font-size: 25px;
-				position:relative;
-				color:@color4;
+			cursor: pointer;
+			.down-button {
+				top: 0.5px;
+				position: relative;
+				display:inline-block;
+				height:@bd;
+				width:@bd*5;	
+				margin: 0px auto 0px auto;			
 			}
-			i.fa-arrow-down {
-				position: absolute;
-				top: 5px;
-				left: 4.5px;
-				font-size: 15px;
+			.circle-wrp {
+				position: relative;
+				height:@bd;
+				width:@bd;
+				display: inline-block;
+			}
+			i.circle {
+				height:@bd;
+				width:@bd;
+				color:@color4;
+				display: block;
+				background-color: @color4;
+				border-radius: 50%;
+				border: 1px solid #000;
+				border-right-color: transparent;
+				border-top-color: transparent;
+				.rotate(-45deg);
+			}
+			i.fa-arrow-down,i.fa-arrow-up {
+				position: relative;
+				font-size: 12px;
 				color: #fff;
+				left: -19px;
+				top: -3px;
 			}
 
-			margin: 0px auto -13px auto;
+			margin: 0px auto -@bm auto;
+
 		}
 		
 		.input-loc {
@@ -281,6 +326,35 @@ time {
 		.input-group {
 			padding-left: @eldif;
 		}
+		#extraFields {
+			padding-top: 10px;
+			text-align: center;
+			margin: 0px auto 0px auto;
+			.adults-cnt {
+				width: 100px;
+			}
+			.child-cnt {
+				width: 105px;
+			}
+			.infant-cnt {
+				width: 110px;
+			}
+			.flight-class {
+				width: 140px;
+			}
+			.wrpr {
+				display: inline-block;
+			}
+			span {
+				padding: 6px;
+			}
+		}
+		#search {
+			position: absolute;
+			bottom:15px;
+			right:20px;
+		}
+
 
 	}
 }
@@ -346,7 +420,23 @@ time {
 				padding-top:7px;
 				padding-bottom:7px;
 			}
-
+			.sortable {
+				.notextselect;
+				padding-right: 20px;
+				cursor: pointer;
+				position:relative;
+			}
+			.sortable i{
+				position: absolute;
+				right: 7px;
+				display:none;
+			}
+			.sortable.asc i.fa-caret-up {
+				display:inline;
+			}
+			.sortable.desc i.fa-caret-down {
+				display:inline;
+			}
 		}
 		
 	}
@@ -357,18 +447,274 @@ time {
 	}
 
 	.routerow {
-		display: table;
-		table-layout: fixed;
+		padding-left:20px;
+		padding-right:20px;
+		font-size: 14px;
+		color: @color4;
+		hr {
+			margin-top: 5px;
+			margin-bottom: 5px;
+			border-top: 1px solid @color4;
+		}
+		.group3,.group4 {
+			padding-right: 10px;
+		}
+		.group2 {
+			padding-bottom: 10px;
+		}
+		.group4 {
+			position: absolute;
+			bottom: 0px;
+			right: 0px;
+			left: 0px;
+			time {
+				font-size: 14px;
+			}
+		}
+		.direct .group4 {
+			left: 10px;	
+		}
+		.group5 {
+			margin-bottom: 20px;
+		}
+		.city,.airport {
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
 		.city {
 			font-weight: bold;
-			color: @color4;
+			white-space: nowrap;
 		}
-		.airport {
+		.airport,.depdow {
 			color: @gray1;
 			font-size: 13px;
+			white-space: nowrap;
+			margin-bottom: 3px;
+		}
+		
+		.cell.direct {
+			padding-left: 10px;
+		}
+		.cell {
+			position: relative;
+			vertical-align: top;
+			padding-top: 10px;
+		}
+		.connector {
+			width: 10px;
+			height: 30px;
+			margin: 16px 0;
+			border: 1px solid @gray1;
+			border-left-color: transparent;
+		}
+		.icons i {
+			display: block;
+			margin-bottom: 10px;
+			margin-top: 10px;
+		}
+		.point-info {
+			height:64px;
+			margin-right: 10px;
+			float:left;
+		}
+		.flight-info {
+			padding:3px;
+			position:relative;
+			height:38px;
+			margin-top: 13px;
+			background-color: @gray3;
+			background: linear-gradient(to right, @gray2 0%, lighten(@gray2, 50%) 100%);
+			float:left;
+			img,.group1 {
+				float:left;
+			}
+
+			img {
+				height:32px;
+				width:32px;
+			}
+			.duration {
+				float:right;
+				font-size: 13px;
+				color: @gray1;
+				padding-top: 8px;
+			}
+			.aircraft {
+				font-weight: bold;
+				color: @color4;
+				font-size: 13px;
+				height: 14px;
+				white-space: nowrap;
+			}
+			.airline {
+				color: @gray1;
+				font-size: 12px;
+				white-space: nowrap;
+			}
+			.aircraft,.airline {
+				width: 85px;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+		}
+		.flight-info:after  {
+			border-color: transparent @gray2;
+			content:"";
+			top: 14px;
+			left: -10px;
+			bottom: auto;
+			border-width: 5px 10px 5px 0;
+			position: absolute;
+			border-style: solid;
+			display: block;
+			width: 0;
+		}
+
+		.points,.times,.icons {
+			float:left;
+		}
+		.connector {
+			float:right;
+		}
+		
+		&.onecell {
+			@pw: 150px;
+			@tw: 120px;
+			@iw: 14px;
+			@cw: 10px;
+			@piw: @pw+@tw+@iw+@cw;	
+			.points { width: @pw; }
+			.times { width: @tw; }
+			.icons { width: @iw; }
+			.connector { width: @cw; }
+			.point-info {width: @pw+@tw+@iw+@cw;}
+			.flight-info {width: 200px;}
+		}
+		&.twocell {
+			@pw: 110px;
+			@tw: 80px;
+			@iw: 14px;
+			@cw: 10px;
+			@piw: @pw+@tw+@iw+@cw;	
+			.points { width: @pw; }
+			.times { width: @tw; }
+			.icons { width: @iw; }
+			.connector { width: @cw; }
+			.point-info {width: @pw+@tw+@iw+@cw;}
+			.flight-info {width: 170px;}
+		}
+		
+		.delay {
+			@delayh: 25px;
+			.connector  {
+				border: 1px dashed @color1;
+				border-bottom: none;
+				border-top: none;
+				border-left: none;
+				height: @delayh;
+				margin: 0;
+			}
+			.point-info {
+				height: @delayh;
+			}
+			.info-text {
+				float:left;
+			}
+			.flight-info {
+				.info {
+					float:left;
+					color: @color1;
+					font-size: 13px;
+				}
+				&:after {
+					border-color: transparent @color4;
+					top: 6px;
+				}
+				background-color: @color4;
+				background: linear-gradient(to right, @color4 0%, lighten(@color1, 80%) 100%);
+				height: 21px;
+				margin-top: 2px;
+				.duration {
+					padding-top:0px;
+				}
+			}
 		}
 	}
+	.gatesrow {
+		padding: 10px 30px;
+		.gate {
+			float:left;
+			width: 96px;
+			cursor: pointer;
+			.label {
+				color: @color4;
+				font-size: 13px;
+				display:block;
+				text-align:center;
+				padding-left: 0px;
+				padding-right: 0px;
+				font-weight: normal;
+				overflow: hidden;
+				text-overflow:ellipsis;
+			}
+			.price {
+				text-align:center;
+				font-size: 13px;					
+				overflow: hidden;
+				text-overflow:ellipsis;
+			}
+			.gate-c {
+				.rounded(3px);
+				background-color: @gray2;
+				background: linear-gradient(to right, @gray2 0%, @gray3 100%);
+				margin:  3px 1px;
+				padding: 1px;
+			}
 
+			&.main {
+				.label {
+					font-size: 15px;
+				}
+				.label,.price {
+					font-weight: bold;
+				}
+				.gate-c {
+					background-color: @color2;
+					background: linear-gradient(to right, @color2 0%, @color7 100%);
+
+					.label {
+						color: @color2t;
+					}
+					margin:  1px;
+					padding: 1px;
+				}
+			}
+			&:hover {
+				text-decoration: none;
+				.gate-c {
+					background-color: darken(@gray2, 10%);
+					background: linear-gradient(to right, darken(@gray2, 10%) 0%, darken(@gray3, 10%) 100%);
+				}
+				&.main .gate-c {
+					background-color: darken(@color2, 10%);
+					background: linear-gradient(to right, darken(@color2, 10%) 0%, darken(@color7, 10%) 100%);
+				}
+			}
+
+
+		}
+
+		.buy {
+			.price {
+				font-family: inherit;
+				font-weight: inherit;
+				font-size: inherit;
+				color: inherit;
+				display: inline;			
+			}
+			float:right;
+		}
+	}
 	.flrow {
 		color: @color4;
 		@airlines_w: 50px;
@@ -566,39 +912,7 @@ time {
 				}
 			}
 			
-			.gate {
-				float:left;
-				width: 96px;
-				.label {
-					color: @color1;
-					font-size: 13px;
-					display:block;
-					text-align: left;
-					padding-left: 0px;
-					padding-right: 0px;
-					font-weight: normal;
-					overflow: hidden;
-					text-overflow:ellipsis;
-				}
-				.price {
-					font-size: 13px;					
-					overflow: hidden;
-					text-overflow:ellipsis;
-				}
-				&.main {
-					.label {
-						font-size: 15px;
-					}
-					.label,.price {
-						font-weight: bold;
-					}
-				}
-				.gate-c {
-					background-color: #ccc;
-					margin:  1px;
-					padding: 1px;
-				}
-			}
+			
 			.gatesholder {
 				min-width: 445px;
 				width: 66.666666666%;
@@ -710,12 +1024,23 @@ time {
 
 .input-group div.locview {
 	position:absolute;
+	display:table;
+	table-layout: fixed;
+	padding-top: 0px;
+	padding-bottom: 0px;
 	.air-idx {
+		display: table-cell;
 		color: grey;
-		float: right;
+		width: 47px;
+		vertical-align: middle;
 	}
 	.air-title {
-		float: left;
+		display: table-cell;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		vertical-align: middle;
+		text-align: left;
+		white-space: nowrap;
 	}
 }
 
@@ -852,11 +1177,24 @@ time {
 			.glyphicon-plus {
 				font-size:10px;
 			}
-		}
-		
-
-		
+		}	
 	}
-	
+}
 
+
+.cheaps-box {
+	i {
+		margin-right: 10px;
+	}
+
+	.price {
+		float:right;
+	}
+}
+
+.popdir-box {
+	img {
+		width:100%;
+		height: auto;
+	}
 }

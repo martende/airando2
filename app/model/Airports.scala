@@ -13,13 +13,21 @@ object TravelType extends Enumeration {
   type TravelType = Value
   val OneWay, Return = Value
 }
+object FlightClass extends Enumeration {
+  type FlightClass = Value
+  val Economy, Business = Value
+}
 
 case class TravelRequest(
   val iataFrom:String,
   val iataTo:String,
   val traveltype:TravelType.TravelType,
   val departure:java.util.Date,
-  val arrival:java.util.Date
+  val arrival:java.util.Date,
+  val adults:Int,
+  val childs:Int,
+  val infants:Int,
+  val flclass:FlightClass.FlightClass
 )
 
 case class GeoPoint(lon:Float,lat:Float) {
@@ -35,6 +43,16 @@ case class GeoPoint(lon:Float,lat:Float) {
     Math.round(d)
   }
 }
+
+case class FlightInfo(
+  from:POI,
+  to:POI,
+  priceEur:Float,
+  airline:String,
+  departure: java.util.Date,
+  arrival:    java.util.Date
+)
+
 
 trait POI {
   val iata:String

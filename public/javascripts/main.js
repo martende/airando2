@@ -11,6 +11,9 @@ require.config({
         },
         jqueryui: {
             deps: ['jquery']
+        },
+        endless: {
+            deps: ['jqueryui']
         }
     },
     paths: {
@@ -23,10 +26,11 @@ require.config({
 
         //moment: "vendor/moment-with-langs.min"
         moment: "http://momentjs.com/downloads/moment-with-langs",
-        slick:  "http://cdn.jsdelivr.net/jquery.slick/1.3.6/slick.min"
+        slick:  "http://cdn.jsdelivr.net/jquery.slick/1.3.6/slick.min",
         //slick:  "https://raw.githubusercontent.com/kenwheeler/slick/master/slick/slick"
         //pixi: 'vendor/pixi.dev',
         //kinetic: 'vendor/kinetic-v5.1.0'
+        endless: "vendor/jquery.endless-scroll"
     }
 });
 

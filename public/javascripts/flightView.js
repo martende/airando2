@@ -35,11 +35,8 @@ define([
       var rf = this.model.get("return_flights");
 
       var trfr;
-      if ( rf ) {
-        trfr = this.renderReturnFlight(df,rf); 
-      } else {
-        trfr = this.renderMainFlight(df);
-      }
+
+      trfr = this.renderMainFlight(df,rf);
       
       this.$el.append(trfr);
 
@@ -48,55 +45,7 @@ define([
       
       return this;
     },
-    /*
-    renderHeader: function(df) {
-      var el = $("<div/>",{class:"header"});
 
-      var np = this.model.get("native_prices");
-      var used_gates = _(np).keys();
-      var gates = this.flightsModel.gates;
-
-      used_gates = used_gates.sort(function(a,b) {
-        if ( np[a] > np[b]) return 1;
-        if ( np[a] < np[b]) return -1;
-        return 0;
-      });
-
-      var bestPrice = np[used_gates[0]];
-
-      var b1 = $("<button/>",{
-        class:"btn  btn-info buy",
-        type:"button",
-        html: [
-          $("<span/>",{class:"glyphicon glyphicon-shopping-cart"}),
-          " "+ __("Buy") + " ",
-          this.createPriceHtml(bestPrice,'eur')
-        ]
-      });
-
-      
-
-      var g0 = used_gates.shift();
-      var gel = this.generateGel(gates[g0].label,np[g0]).addClass("main");
-
-      var gateEls = [gel];
-      if (used_gates.length ) {
-        gateEls.push(this.prepareSlick(used_gates));
-      }
-      var mainav = df[0].airline;
-      var aviaimg = $("<img/>",{src:"/assets/images/av/"+mainav+".webp"});
-
-      var ip = $("<div/>",{class:"buttonholder",html:[b1]});
-      var p1 = $("<div/>",{class:"gatesholder",html:gateEls});
-      var d0 = $("<div/>",{class:"imgholder",html:[aviaimg]});
-      
-
-
-      el.append([ip,p1,d0]);
-
-      return el;
-    },
-    */
     createPriceHtml:function(val,cur) {
       //var el = $("<div/>",{class: 'price','data-cur' : cur,'data-val':val});
       //el.html(this.flightsModel.indexModel.getPriceText(val,cur));
@@ -107,204 +56,166 @@ define([
 
       return el;
     },
-    
-    generateGel: function(label,price) {
-      var gel = $("<div/>",{class: 'gate',
-        html: [$("<div/>",{class: 'gate-c',
-          html: [
-            $("<div/>",{class: 'label',html:label}),
-            this.createPriceHtml(price,'eur')
-          ]})
-        ]
-      });
-      return gel;
+    appendTo: function ($container) {
+      $container.append(this.$el);
+      this.bindClickEvent();
     },
 
-    prepareSlick: function(glist) {
-      var slickWrpr = $("<div />",{class:"slick-wrpr"});
-      var slick = $("<div />",{class:""});
-      var np = this.model.get("native_prices");
-      var gates = this.flightsModel.gates;
-      var im = this.flightsModel.indexModel;
-      for (var i = 0 ; i < glist.length ; i++) {
-        var g = glist[i];
-        if (g in gates) {
-          var gel = this.generateGel(gates[g].label,np[g]);
-          slick.append(gel);
+    bindClickEvent: function() {
+      $(".flrow",this.$el).unbind("click").click(function(e,a) {
+        var $t   = $(e.target);
+        var $flr = $t.closest(".flrow");
+        var $t = $flr.next();
+        if ( $t.is(":hidden")) {
+          $("a.buy",$flr).fadeOut();
+          $t.slideDown();
+        } else {
+          $("a.buy",$flr).fadeIn();
+          $t.slideUp();
         }
-      }
-      slickWrpr.append(slick);
-      slick.slick({
-        infinite: false,
-        slidesToShow: 3,
-        slidesToScroll: 3
       });
-
-      return slickWrpr;
     },
-    /*
-    renderMainFlight: function(df) {
-      var f = df[0];
-      var l = df[df.length-1];
-      
-      var fromName = f.fromName;
-      var toName   = l.toName;
-      var momD     =  moment.unix(f.departure);
-      var momA     =  moment.unix(l.arrival);
-      var fromTime = momD.format(this.dateFormat);
-      var toTime   = momA.format(this.dateFormat);
 
-      var infoText = 
-        this.humanizeDuration(f.arrival - f.departure) + 
-        ", "+
-        this.humanizePeresadka(df.length-1);
-
-      var el = $("<div/>",{class:"row main v-center"});
-
-      var icon = $("<span/>",{class: "glyphicon glyphicon-plane"});
-
-      var p1n = $("<div/>",{class:"name",html:fromName});
-      var p2n = $("<div/>",{class:"name",html:toName});
-      var p1d = $("<div/>",{class:"name",html:fromTime});
-      var p2d = $("<div/>",{class:"name",html:toTime});
-
-
-      var ip = $("<div/>",{class:"col-sm-1",html:[icon]});
-      var p1 = $("<div/>",{class:"col-sm-3",html:[p1n,p1d]});
-      var d0 = $("<div/>",{class:"col-sm-5 textinfo",html:[infoText]});
-      var p2 = $("<div/>",{class:"col-sm-3",html:[p2n,p2d]});
-      
-
-
-      el.append([ip,p1,d0,p2]);
-
-      return el;
-    },
-    */
-    renderReturnFlight: function(df,rf) {
+    renderMainFlight: function(df,rf) {
+      var im = this.flightsModel.indexModel;
       var el = $("<div/>");
       var avsa = this.model.getAirlines();
+      var avsh = {};      
+      for ( var i = 0 ; i < avsa.length;i++) {
+        avsh[avsa[i].id]=avsa[i];
+      }
+
       var f = df[0];
       var l = df[df.length-1];
-      var r_f = rf[0];
-      var r_l = rf[rf.length-1];
-
       if ( avsa.length > 4) avsa = avsa.slice(0,4);
-      
       var bestPrice = this.createPriceHtml(
         this.model.getFullPrice(),'eur'
       );
       
       var duration = this.model.getDirectDuration();
-      var r_duration = this.model.getReturnDuration();      
-
 
       var innerInfo = [];
       for ( var i = 1 ; i < df.length  ; i++) {
         innerInfo.push( __("Via") + " " + this.humanizeCityVia(df[i].fromCityName) + ", " + __("stop lasts") + " " + this.humanizeDuration(df[i].delay*60) + ".");
       }
 
-      var r_innerInfo = [];
-      for ( var i = 1 ; i < rf.length  ; i++) {
-        r_innerInfo.push( __("Via") + " " + this.humanizeCityVia(rf[i].fromCityName) + ", " + __("stop lasts") + " " + this.humanizeDuration(rf[i].delay*60) + ".");
-      }
-
       var infoText = 
         this.humanizeDuration(duration) + " " + __("on the way") + 
         ", "+
         this.humanizePeresadka(df.length-1);
-
-      var r_infoText = 
-        this.humanizeDuration(r_duration) + " " + __("on the way") + 
-        ", "+
-        this.humanizePeresadka(rf.length-1);
-
       var flc = df.length-1;
-      var r_flc= rf.length-1;
-      //flc=1;
-      el.html(this.templateReturnFl({
+      var deproutes = this.prepareRouteDetails(avsh,df);
+      
+      var gatesHtml = this.prepareGatesList();
+      var bestGate = gatesHtml.shift();
+
+      var attrs = {
         'avc':avsa.length,
         'flc':flc,
         'stopsHtml' : this.createStopsHtml(flc,infoText,innerInfo),
         'avlines':avsa,
-        'ft':this.flightsModel.indexModel.getTimeHtml(f.departure),
-        'tt':this.flightsModel.indexModel.getTimeHtml(l.arrival),
+        'ft':im.getTimeHtml(f.departure),
+        'tt':im.getTimeHtml(l.arrival),
         'fiata': f.origin,
         'tiata': l.destination,
         'fname': f.fromCityName,
         'tname': l.toCityName,
-        'duration': this.humanizeDuration(duration),
-        
+        'directDuration': this.humanizeDuration(duration),
         'price': bestPrice,
-        
-        'r_flc':r_flc,
-        'r_fiata': r_f.origin,
-        'r_tiata': r_l.destination,
-        'r_ft':this.flightsModel.indexModel.getTimeHtml(r_f.departure),
-        'r_tt':this.flightsModel.indexModel.getTimeHtml(r_l.arrival),
-        'r_stopsHtml':this.createStopsHtml(r_flc,r_infoText,r_innerInfo),
-        'r_duration':this.humanizeDuration(r_duration),
-      }));
+        'directFl': deproutes,
+        'directDepDate':im.humanizeDate(f.departure),
+        'directAvlDate':im.humanizeDate(l.arrival),
+        'bestGate' : bestGate,
+        'gates'    : gatesHtml
+      };
+      var tmpl = this.templateDirectFl;
+      if (rf) {
+        var r_f = rf[0];
+        var r_l = rf[rf.length-1];
+
+        var r_innerInfo = [];
+        for ( var i = 1 ; i < rf.length  ; i++) {
+          r_innerInfo.push( __("Via") + " " + this.humanizeCityVia(rf[i].fromCityName) + ", " + __("stop lasts") + " " + this.humanizeDuration(rf[i].delay*60) + ".");
+        }
+        var r_infoText = 
+          this.humanizeDuration(r_duration) + " " + __("on the way") + 
+          ", "+
+          this.humanizePeresadka(rf.length-1);
+        var r_flc= rf.length-1;
+        var r_duration = this.model.getReturnDuration();      
+        var retroutes = this.prepareRouteDetails(avsh,rf);
+
+        _.extend(attrs,{
+          'r_flc':r_flc,
+          'r_fiata': r_f.origin,
+          'r_tiata': r_l.destination,
+          'r_ft':im.getTimeHtml(r_f.departure),
+          'r_tt':im.getTimeHtml(r_l.arrival),
+          'r_stopsHtml':this.createStopsHtml(r_flc,r_infoText,r_innerInfo),
+          'returnDuration':this.humanizeDuration(r_duration),
+          'returnDepDate':im.humanizeDate(r_f.departure),
+          'returnAvlDate':im.humanizeDate(r_l.arrival),
+          'returnFl': retroutes
+        });
+        tmpl = this.templateReturnFl;
+      }
+      
+      el.html(tmpl(attrs));
+
       return el;
     },
 
-    renderMainFlight: function(df) {
-      var el = $("<div/>");
-      var avsa = this.model.getAirlines();
-      var f = df[0];
-      var l = df[df.length-1];
-      if ( avsa.length > 4) avsa = avsa.slice(0,4);
-      var bestPrice = this.createPriceHtml(
-        this.model.getFullPrice(),'eur'
-      );
-      
-      var duration = this.model.getDirectDuration();
+    prepareGatesList: function() {
+      var np = this.model.get("native_prices");
+      var urls = this.model.get("order_urls");
+      var used_gates = _(np).keys();
+      var gates = this.flightsModel.gates;
 
-      var innerInfo = [];
-      for ( var i = 1 ; i < df.length  ; i++) {
-        innerInfo.push( __("Via") + " " + this.humanizeCityVia(df[i].fromCityName) + ", " + __("stop lasts") + " " + this.humanizeDuration(df[i].delay*60) + ".");
+      used_gates = used_gates.sort(function(a,b) {
+        if ( np[a] > np[b]) return 1;
+        if ( np[a] < np[b]) return -1;
+        return 0;
+      });
+
+      var gatesHtml = [];
+      for ( var i = 0 ; i < used_gates.length ; i++) {
+        var gi = used_gates[i];
+        gatesHtml.push({
+          url: this.hash2url(urls[gi]),
+          label: gates[gi].label,
+          priceHtml: this.createPriceHtml(np[gi],'eur')
+        });
       }
 
-      var infoText = 
-        this.humanizeDuration(duration) + " " + __("on the way") + 
-        ", "+
-        this.humanizePeresadka(df.length-1);
-
-      var flc = df.length-1;
+      return gatesHtml;
+    },
+    hash2url: function(sign) {
+      return "/r/"+sign;
+    },
+    prepareRouteDetails: function(avsh,df) {
+      var im = this.flightsModel.indexModel;      
       var deproutes = [];
       for ( var i = 0 ; i < df.length  ; i++) {
         deproutes.push({
-          dep: this.flightsModel.indexModel.getTimeHtml(df[i].departure),
-          avl: this.flightsModel.indexModel.getTimeHtml(df[i].arrival),
+          dep: im.getTimeHtml(df[i].departure),
+          depDow:im.getDayOfWeek(df[i].departure),
+          avl: im.getTimeHtml(df[i].arrival),
+          avlDow:im.getDayOfWeek(df[i].arrival),
           fromIata: df[i].origin,
           toIata: df[i].destination,
           fromCityName: df[i].fromCityName,
           toCityName: df[i].toCityName,
           fromName: df[i].fromName,
           toName: df[i].toName,
-          name: 1,
-          img:1
+          airlineImg: avsh[df[i].airline].img,
+          airlineName: avsh[df[i].airline].name,
+          aircraftName: df[i].aircraft,
+          duration: this.humanizeDurationShort(df[i].duration*60),
+          delay: !! df[i].delay ,
+          delayHHMM: this.humanizeDurationShort(df[i].delay*60),
         });
       }
-//      console.log(deproutes);
-
-      //flc=1;
-      el.html(this.templateDirectFl({
-        'avc':avsa.length,
-        'flc':flc,
-        'stopsHtml' : this.createStopsHtml(flc,infoText,innerInfo),
-        'avlines':avsa,
-        'ft':this.flightsModel.indexModel.getTimeHtml(f.departure),
-        'tt':this.flightsModel.indexModel.getTimeHtml(l.arrival),
-        'fiata': f.origin,
-        'tiata': l.destination,
-        'fname': f.fromCityName,
-        'tname': l.toCityName,
-        'duration': this.humanizeDuration(duration),
-        'price': bestPrice,
-        'deproutes': deproutes
-      }));
-      return el;
+      return deproutes;
     },
     createStopsHtml: function(n,infoText,i) {
       var m = "&#xf068;";

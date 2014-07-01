@@ -1,7 +1,8 @@
 define([
   'underscore',
   'backbone',
-  'locModel'
+  'locModel',
+  'datepicker'
 ], function( _, Backbone,LocModel){
   var indexModel = Backbone.Model.extend({
     defaults: {
@@ -78,6 +79,21 @@ define([
       return val;
     },
 
+    getDayOfWeek: function(unix_timestamp) {
+      var d = new Date(unix_timestamp*1000);
+      return $.fn.datepicker.dates[this.get('lang')]['days'][d.getDay()];
+    },
+
+    humanizeDate: function(unix_timestamp) {
+      var d = new Date(unix_timestamp*1000);
+      
+      return $.fn.datepicker.DPGlobal.formatDate(
+        d,
+        $.fn.datepicker.dates[this.get('lang')]['format'],
+        this.get('lang')
+      );
+    },
+
     getTimeHtml: function(unix_timestamp) {
       var lang = this.get('lang');
       var date = new Date(unix_timestamp*1000);
@@ -141,7 +157,7 @@ define([
         if ( h == 1 || ( h10 == 1 && h > 20) ) {
           o = h + " hour";
         } else if ( h > 1 ) {
-          o = h + " hour";
+          o = h + " hours";
         }
         if ( m == 1 || ( m10 == 1 && h > 20) ) {
           o += " " + m + " minute";

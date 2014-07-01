@@ -21,6 +21,10 @@ import play.api.data.format.Formatter
 import model._
 // TravelType enum import
 import model.TravelType._
+import model.FlightClass._
+
+// implicit for Akka ExecutionContext.Implicits.global
+import play.api.libs.concurrent.Execution.Implicits._
 
 object Application extends Controller with CookieLang with Track {
 
@@ -29,7 +33,7 @@ object Application extends Controller with CookieLang with Track {
 		utils.IpGeo(maxmindDb, memCache = false, lruCache = 10000)
 	}
 
-  def index = Action {
+  def index = Action.async {
   	implicit request =>
   	
     var ipInfo:utils.IpLocation = ipGeo.getLocation(request.remoteAddress).getOrElse(utils.IpLocation.empty)
@@ -46,7 +50,14 @@ object Application extends Controller with CookieLang with Track {
     val departure = request.cookies.get("departure").map(_.value).getOrElse("");
     val currency = request.cookies.get("currency").map(_.value).getOrElse("eur");
 
-    Ok(views.html.index(from,to,traveltype,currency,arrival,departure))
+    val cheapestPromise = actors.Manager.getCheapest(from.iata)
+
+    cheapestPromise.map { cheapest => 
+      val cheapestTaken = scala.util.Random.shuffle(cheapest.sortBy(_.priceEur).take(50)).take(10).sortBy(_.priceEur)
+      Ok(views.html.index(from,to,traveltype,currency,arrival,departure,cheapestTaken))
+    }
+
+    
   }
 
   def term(q:String) = Action {
@@ -108,7 +119,20 @@ object Application extends Controller with CookieLang with Track {
         case TravelType.Return => Map(key -> "return")
         case TravelType.OneWay => Map(key -> "oneway")
       }
-
+    }
+    implicit val fcFormat = new Formatter[FlightClass] {
+      def bind(key: String, data: Map[String, String]):Either[Seq[FormError], FlightClass] = {
+        data.get(key) match {
+          case Some("economy")  => Right(FlightClass.Economy)
+          case Some("business") => Right(FlightClass.Business)
+          //case None => Right(FlightClass.Economy)
+          case _ => Right(FlightClass.Economy)
+        }
+      }
+      def unbind(key: String, value: FlightClass) = value match {
+        case FlightClass.Economy  => Map(key -> "exonomy")
+        case FlightClass.Business => Map(key -> "business")
+      }
     }
 
     val searchForm = Form(
@@ -117,7 +141,11 @@ object Application extends Controller with CookieLang with Track {
         "to" -> iata,
         "traveltype" -> of[TravelType],
         "departure" -> date("yyyyMMdd"),
-        "arrival" -> date("yyyyMMdd")
+        "arrival" -> date("yyyyMMdd"),
+        "adults"  -> default(number,1),
+        "childs"  -> default(number,0),
+        "infants"  -> default(number,0),
+        "flclass"  -> of[FlightClass]
       )(model.TravelRequest.apply)(model.TravelRequest.unapply)
     )
 
@@ -127,7 +155,7 @@ object Application extends Controller with CookieLang with Track {
       },
 
       userData => {
-        
+        println(userData)
         val searchActor = actors.Manager.startSearch(userData)
         Ok(Json.obj(
           "id" -> searchActor
@@ -150,7 +178,8 @@ object Application extends Controller with CookieLang with Track {
         "BER",
         TravelType.Return,
         new java.util.Date(114,7,12),
-        new java.util.Date(114,7,18)
+        new java.util.Date(114,7,18),
+        1,0,0,FlightClass.Economy
         ),
         Airports.get("CGN").get,
         Airports.get("BER"),
@@ -165,5 +194,14 @@ object Application extends Controller with CookieLang with Track {
         }
         
     }
+  }
+
+  def redirect(id:String) = Action.async {
+    if ( id.substring(0,4) == "avs:") {
+      import actors.avsfetcher.AvsCacheParser
+      AvsCacheParser.fetchRedirUrl(id.substring(4)).map {
+        url => Results.Found(url)
+      }
+    } else ???
   }
 }

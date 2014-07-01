@@ -38,6 +38,10 @@
           case None => { null } 
         },
         traveltype: "@tr.traveltype".toLowerCase(),
+        adults:"@tr.adults",
+        childs:"@tr.childs",
+        infants:"@tr.infants",
+        flclass: "@tr.flclass".toLowerCase()
       };
 
     </script>
@@ -50,47 +54,93 @@
 	<div class="container results">
 		<nav class="navbar navbar-default" role="navigation">
       <form class="navbar-form navbar-left" role="form">
-        <button type="button" class="btn btn-success pull-right" id="search">
+        <div class="row">
+
+          <div class="input-group input-loc pull-left" id="fromInp">
+            <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
+            <input type="text" placeholder="From" class="form-control" >
+          </div>
+
+          <div class="input-group input-loc pull-left" id="toInp">
+            <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
+            <input type="text" placeholder="From" class="form-control" >
+          </div>
+          <span class="date-group input-daterange">
+  	  				<div class="input-group pull-left" id="fromInp">
+  	      				<span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
+  	          		<input id="depDate" type="text" placeholder="Departure" class="form-control" >
+  	          </div>
+  	          <div class="input-group pull-left" id="" >
+  	      				<span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
+  	          		<input type="text" placeholder="Arrival" id="arvlDate" class="form-control" >
+  	          </div>
+  	      </span>  
+          <button type="button" class="btn btn-primary pull-left" id="travelType" data-toggle="button">
+            <span class="toggle-on">
+              <i class="glyphicon glyphicon-plane"></i> One way
+            </span>
+            <span class="toggle-off">
+              <i class="glyphicon glyphicon-transfer"></i> Round trip
+            </span>
+          </button>
+        </div>
+        <div class="row" id="extraFields">
+          <div class="wrpr">
+            <span class="pull-left">Passangers: </span>
+            <div class="input-group pull-left adults-cnt" title="Adults">
+              <span class="input-group-addon"><i class="fa fa-male"></i></span>
+              <select type="text" class="form-control" id="adults">
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+              </select>
+            </div>
+            <div class="input-group pull-left child-cnt" title="Children">
+              <span class="input-group-addon"><i class="fa fa-child"></i></span>
+              <select type="text" class="form-control" id="childs">
+                <option>0</option>
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+              </select>
+            </div>
+            <div class="input-group pull-left infant-cnt" title="Infants">
+              <span class="input-group-addon"><i class="fa fa-reddit"></i></span>
+              <select type="text" class="form-control" id="infants">
+                <option>0</option>
+                <option>1</option>
+                <option>2</option>
+                <option>3</option>
+                <option>4</option>
+                <option>5</option>
+              </select>
+            </div>
+            <span class="pull-left">Class: </span>          
+            <select type="text" class="form-control flight-class pull-left" id="flclass">
+              <option value="economy">Economy</option>
+              <option value="business">Business</option>
+            </select>
+            <div class="clearfix"></div>
+          </div>
+        </div>
+          <button type="button" class="btn btn-success pull-right" id="search">
             <i class="fa fa-spinner fa-spin"></i>
             <span class="glyphicon glyphicon-plane"></span> Search
-        </button>
-
-        <div class="input-group input-loc pull-left" id="fromInp">
-          <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
-          <input type="text" placeholder="From" class="form-control" >
-        </div>
-
-        <div class="input-group input-loc pull-left" id="toInp">
-          <span class="input-group-addon"><i class="glyphicon glyphicon-map-marker"></i></span>
-          <input type="text" placeholder="From" class="form-control" >
-        </div>
-        <span class="date-group input-daterange">
-	  				<div class="input-group pull-left" id="fromInp">
-	      				<span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
-	          		<input id="depDate" type="text" placeholder="Departure" class="form-control" >
-	          </div>
-	          <div class="input-group pull-left" id="" >
-	      				<span class="input-group-addon"><i class="glyphicon glyphicon-calendar"></i></span>
-	          		<input type="text" placeholder="Arrival" id="arvlDate" class="form-control" >
-	          </div>
-	      </span>  
-        <button type="button" class="btn btn-primary pull-left" id="travelType" data-toggle="button">
-          <span class="toggle-on">
-            <i class="glyphicon glyphicon-plane"></i> One way
-          </span>
-          <span class="toggle-off">
-            <i class="glyphicon glyphicon-transfer"></i> Round trip
-          </span>
-        </button>      
-      </form>
-
-      <form id="extraFields" class="navbar-form navbar-left" role="form">
+          </button>
       </form>
       <div class="bottom">
-        <i class="fa fa-circle">
+        <div class="down-button">
+          <div class="circle-wrp">
+            <i class="circle">
+            </i>
+          </div>
           <i class="fa fa-arrow-down">
           </i>
-        </i>
+        </div>
       </div>      
     </nav>
 
@@ -122,11 +172,11 @@
             <div id="flightsHeader">
               <div class="flrow">
                 <div class="cell airlines"></div>
-                <div class="cell departure">Departure</div>
-                <div class="cell duration">Duration</div>
-                <div class="cell stops-col">Stops</div>
-                <div class="cell arrival">Arrival</div>
-                <div class="cell price-col">Price</div>
+                <div class="cell departure sortable">Departure</div>
+                <div class="cell duration sortable">Duration</div>
+                <div class="cell stops-col sortable">Stops</div>
+                <div class="cell arrival sortable">Arrival</div>
+                <div class="cell price-col sortable">Price</div>
               </div>
             </div>
 
@@ -149,7 +199,7 @@
                             <span class="iata" title="<%- fname %>"><%- fiata %></span>
                           </div>
                           <div class="cell duration _<%- flc %>">
-                            <%- duration %>
+                            <%- directDuration %>
                           </div>
                           <div class="cell stops-col _<%- flc %>">
                             <div class="stops">
@@ -168,7 +218,7 @@
                             <span class="iata" title="<%- fname %>"><%- r_fiata %></span>
                           </div>
                           <div class="cell duration _<%- r_flc %>">
-                            <%- r_duration %>
+                            <%- returnDuration %>
                           </div>
                           <div class="cell stops-col _<%- r_flc %>">
                             <div class="stops">
@@ -185,16 +235,55 @@
                     
                     <div class="cell price-col">
                       <%= price %>
-                      <!--
-                      <button class="btn btn-info buy">
+                    </div>
+
+                    <div class="cell price-col">
+                      <a target="_blank" class="btn btn-info buy" href="<%- bestGate.url %>">
                         <span class="glyphicon glyphicon-shopping-cart"></span>
                         Buy 
-                      </button>
-                      -->
+                      </a>
+                    </div>
+
+                  </div>
+                  <div class="details" style="display:none;">
+                    <div class="routerow twocell">
+                      <div class="cell direct">
+                        @detailscell("direct")
+                      </div>
+                      <div class="cell return">
+                        @detailscell("return")
+                      </div>
+                    </div>
+
+                    <div class="gatesrow">
+                      <a target="_blank" class="gate main" href="<%- bestGate.url %>">
+                        <div class="gate-c">
+                          <div class="label">
+                            <%- bestGate.label %>
+                          </div>
+                          <%= bestGate.priceHtml %>
+                        </div>
+                      </a>
+                      <% _.each( gates, function( g ){ %>
+                        <a target="_blank" class="gate" href="<%- g.url %>">
+                          <div class="gate-c">
+                            <div class="label">
+                              <%- g.label %>
+                            </div>
+                            <%= g.priceHtml %>
+                          </div>
+                        </a>
+                      <% }); %>
+
+                      <a target="_blank" class="btn btn-info buy" href="<%- bestGate.url %>">
+                        <span class="glyphicon glyphicon-shopping-cart"></span>
+                        Buy <%= price %>
+                      </a>
+                      <div class="clearfix"></div>
                     </div>
                   </div>
-              </script>
 
+              </script>
               <script type="text/template" id="tmplDirectFlight">
                 <div class="flrow">
                   <div class="cell airlines _<%- avc %>">
@@ -210,7 +299,7 @@
                     <span class="iata" title="<%- fname %>"><%- fiata %></span>
                   </div>
                   <div class="cell duration _<%- flc %>">
-                    <%- duration %>
+                    <%- directDuration %>
                   </div>
                   <div class="cell stops-col _<%- flc %>">
                     <div class="stops">
@@ -226,30 +315,46 @@
                     <%= price %>
                   </div>
                   <div class="cell price-col">
-                    <button class="btn btn-info buy">
+                    <a target="_blank" class="btn btn-info buy" href="<%- bestGate.url %>">
                       <span class="glyphicon glyphicon-shopping-cart"></span>
                       Buy 
-                    </button>
+                    </a>
                   </div>
                 </div>
-                <!--
-                <div class="routerow">
-                  <div class="cell direct">
-                    <%  _.each( deproutes, function( t ){  %>
-                    
-                    <div class="pull-left">
-                      <div class="city"><%- t.fromCityName %></div>
-                      <div class="airport"><%- t.fromName %></div>
+                <div class="details" style="display:none;">
+                  <div class="routerow onecell">
+                    <div class="cell direct">
+                      @detailscell("direct")
                     </div>
-                    <div class="pull-right">
-                      <%= t.dep %>
-                      <div class="depdow"><% t.dep %></div>
-                    </div>
-                    
+                  </div>
+
+                  <div class="gatesrow">
+                      <a target="_blank" class="gate" href="<%- bestGate.url %>">
+                      <div class="gate-c">
+                        <div class="label">
+                          <%- bestGate.label %>
+                        </div>
+                        <%= bestGate.priceHtml %>
+                      </div>
+                    </a>
+                    <% _.each( gates, function( g ){ %>
+                        <a target="_blank" class="gate" href="<%- g.url %>">
+                        <div class="gate-c">
+                          <div class="label">
+                            <%- g.label %>
+                          </div>
+                          <%= g.priceHtml %>
+                        </div>
+                      </a>
                     <% }); %>
+
+                    <a target="_blank" class="btn btn-info buy" href="<%- bestGate.url %>" >
+                      <span class="glyphicon glyphicon-shopping-cart"></span>
+                      Buy <%= price %>
+                    </a>
+                    <div class="clearfix"></div>
                   </div>
                 </div>
-                -->
               </script>
             </div>
           </div>

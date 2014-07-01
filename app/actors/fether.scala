@@ -27,6 +27,7 @@ import play.api.libs.json.{JsValue,Json}
 
 // TravelType enum import
 import model.TravelType._
+import model.FlightClass._
 
 import java.util.Date
 import java.text.SimpleDateFormat
@@ -36,17 +37,11 @@ case class Refresh()
 case class Subscribe()
 case class Connected( enumerator: Enumerator[ JsValue ] )
 
-class ExternalGetter extends Actor {
-  val ( enumerator, channel ) = Concurrent.broadcast[JsValue]
-
-  var idx = 0
-  var schedule:Cancellable = _
-  var buffer:List[JsValue] = List()
-
-  val cacheDir = Play.application.path + "/" + Play.current.configuration.getString("cache-dir").getOrElse({
-    Logger.error("cache-dir not configured")
-    throw play.api.UnexpectedException(Some("cache-dir not configured"))  
-  })
+trait Caching {
+  lazy val cacheDir = Play.application.path + "/" + Play.current.configuration.getString("cache-dir").getOrElse({
+      Logger.error("cache-dir not configured")
+      throw play.api.UnexpectedException(Some("cache-dir not configured"))  
+    })
 
   def md5(text: String) : String = java.security.MessageDigest.getInstance("MD5").digest(text.getBytes()).map(0xFF & _).map { "%02x".format(_) }.foldLeft(""){_ + _}
   def writeFile(fname:String,content:String) = Some(new java.io.PrintWriter(fname)).foreach{p => p.write(content); p.close}
@@ -76,7 +71,20 @@ class ExternalGetter extends Actor {
         //log.debug(s"Fetch ${url} from cache ${fname}")
         Some(scala.io.Source.fromFile(fname.getPath).mkString)
     } else None
-  }
+  }  
+}
+
+abstract class AnyParser {
+  val id:String
+}
+
+class ExternalGetter extends Actor with Caching {
+  val ( enumerator, channel ) = Concurrent.broadcast[JsValue]
+
+  var idx = 0
+  var schedule:Cancellable = _
+  var buffer:List[JsValue] = List()
+
 
   import actors.avsfetcher._
 
@@ -89,22 +97,20 @@ class ExternalGetter extends Actor {
       "search[params_attributes][depart_date]" -> Seq(df.format(tr.departure)), 
       "search[params_attributes][return_date]" -> Seq( if (tr.traveltype == OneWay ) "" else df.format(tr.arrival) ), 
       "search[params_attributes][range]" -> Seq("0"), 
-      "search[params_attributes][adults]" -> Seq("1"), 
-      "search[params_attributes][children]" -> Seq("0"), 
-      "search[params_attributes][infants]" -> Seq("0"), 
-      "search[params_attributes][trip_class]" -> Seq("0"), 
+      "search[params_attributes][adults]" -> Seq(tr.adults.toString), 
+      "search[params_attributes][children]" -> Seq(tr.childs.toString), 
+      "search[params_attributes][infants]" -> Seq(tr.infants.toString), 
+      "search[params_attributes][trip_class]" -> Seq( if (tr.traveltype == Business ) "1" else "0"), 
       "search[params_attributes][direct]" -> Seq("0")
     )
-    val token = "67c3abc2accf4c0890e6b7f8192c7971"
-    val marker = "33313"
-    val signature:String = md5(s"$token:$marker:" +aParams.keys.toSeq.sorted.map(k=>aParams(k).mkString).mkString(":"))
+    val signature:String = md5(s"${avsfetcher.AVSParser.token}:${avsfetcher.AVSParser.marker}:" +aParams.keys.toSeq.sorted.map(k=>aParams(k).mkString).mkString(":"))
 
     val holder = getFromCache(signature).fold { 
       WS.url("http://yasen.aviasales.ru/searches.json") 
-      .withRequestTimeout(30000).post(aParams + 
+      .withRequestTimeout(60000).post(aParams + 
         ("signature" -> Seq(signature) ) + 
         ("enable_api_auth" -> Seq("true") ) + 
-        ("marker" -> Seq(marker) )
+        ("marker" -> Seq(avsfetcher.AVSParser.marker) )
       ).map { 
         response => 
         saveCache(signature,response.body)
@@ -229,4 +235,37 @@ object Manager {
     def getTravelInfo(idx:Int) = {
       Await.result( (managerActor ? GetTravelInfo(idx)).mapTo[Option[model.TravelRequest]] , fastTimeout )
     }
+
+    def getCheapest(iataFrom:String):Future[Seq[model.FlightInfo]] =  
+      model.Airports.get(iataFrom) match {
+        case Some(from) => 
+          val f = avsfetcher.AvsCacheParser.fetchAviasalesCheapest(iataFrom)
+          val ret0 = f.map {
+            ret => ret.groupBy(_.iataTo).flatMap {
+              case (iataTo,rs) => 
+                model.Airports.get(iataTo) match {
+                  case Some(to) => 
+                    if ( rs.isEmpty )
+                      Option.empty[model.FlightInfo]
+                    else {
+                      val r = rs.minBy(_.price)
+                      Some(
+                        model.FlightInfo(from,to,r.price.toFloat,r.airline,r.departure_at,r.return_at)
+                      )
+                    }
+                  case None     => 
+                    Logger.warn(s"getCheapest:iataTo $iataTo - no such airport")
+                    Option.empty[model.FlightInfo]
+                }
+            }.toSeq
+          }
+          ret0
+
+        case None => 
+          Logger.error(s"getCheapest $iataFrom - no such airport")
+          Future.successful(List.empty[model.FlightInfo])
+      }
+
 }
+
+
