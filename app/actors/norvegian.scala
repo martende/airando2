@@ -15,19 +15,20 @@ class NorvegianAirlines extends BaseFetcherActor {
 
   case class UpdateSrcIatas(v:Set[String])
   case class UpdateDstIatas(v:Set[String])
-
+/*
   def waitAnswer = {
     case UpdateSrcIatas(v) => srcIatas = v
     case UpdateDstIatas(v) => dstIatas = v
 
   }
+  */
   def receive = {
     
     case StartSearch(tr) => 
       val _sender = sender
       Logger.info(s"StartSearch ${tr}")
         
-      become(waitAnswer)
+      //become(waitAnswer)
 
       execAsync(Seq("./bin/phantomjs","--proxy=http://127.0.0.1:3128",
         "phantomjs/fetcher.js","norvegianairlines","ORY","BOJ","2014-07-03")) {
