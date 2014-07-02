@@ -13,6 +13,7 @@ object TravelType extends Enumeration {
   type TravelType = Value
   val OneWay, Return = Value
 }
+
 object FlightClass extends Enumeration {
   type FlightClass = Value
   val Economy, Business = Value
