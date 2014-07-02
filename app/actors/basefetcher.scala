@@ -2,15 +2,72 @@ package actors
 import akka.actor.{Actor,Cancellable}
 import scala.concurrent.{Future,Promise}
 
+import play.api.Logger
+
+
 abstract class BaseFetcherActor extends Actor {
+
   import sys.process._
   val system = akka.actor.ActorSystem("system")
 
   import context.dispatcher
   import scala.concurrent.duration._
 
+  class PhantomInitException(msg: String) extends RuntimeException(msg)
+
   var pid = 0 
 
+  
+  def execAsync(cmd:Seq[String])(fn: String=>Unit) = {
+    Logger.info(s"execAsync ${cmd.mkString(" ")}")
+    pid+=1
+
+    val fatalPromise = Promise[Option[String]]()
+    val pb = Process(cmd)
+    
+    val out = new StringBuilder
+    //val err = new StringBuilder
+
+    try {
+      val pr:Process = pb.run(ProcessLogger {
+        s =>
+        try {
+          fn(s)
+        } catch {
+          case e:Exception => 
+            fatalPromise.failure(e)
+        }
+      })
+      val exec = Future {
+        //val ret = cmd !!
+        pr.exitValue match {
+          case 0 => Some(out.toString)
+          case _ => None
+        }
+        
+      }
+
+      var timeout = system.scheduler.scheduleOnce(10000 millis) {
+        pr.destroy()
+        fatalPromise.success(None)
+      }
+      
+
+      val r = Future.firstCompletedOf(Seq(fatalPromise.future,exec))
+        
+      // postprocessing cleanup
+      r.onComplete {
+        _ => 
+          pr.destroy()
+          timeout.cancel()
+      }
+      
+      r      
+    } catch {
+      case e:Exception => Future failed e
+    }
+
+  }
 
   def execWithTimeout(cmd:Seq[String]) = {
   	pid+=1

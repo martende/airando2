@@ -25,6 +25,7 @@ import play.api.test.Helpers._
 import play.api._
 import play.api.libs.json.JsValue
 import play.api.libs.iteratee.Iteratee
+import scala.concurrent.duration._
 
 
 class AVSParserSpec extends FunSuite {
@@ -113,7 +114,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
   with BeforeAndAfterAll
 {
   implicit override def patienceConfig =
-    PatienceConfig(timeout = Span(1, Seconds), interval = Span(50, Millis))
+    PatienceConfig(timeout = Span(60, Seconds), interval = Span(500, Millis))
   def this() = this(ActorSystem("testActorSystem", ConfigFactory.load()))
   implicit val app: FakeApplication = FakeApplication()
   // Execution context statt import ExecutionContext.Implicits.global
@@ -130,12 +131,14 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
     "t1" in {
       val fetcher = system.actorOf(Props[actors.NorvegianAirlines])
 
-      fetcher ! "1"
+      within (1 minute) {
+        fetcher ! actors.StartSearch(model.TravelRequest("CGN","BER",model.TravelType.OneWay,
+          new java.util.Date(),new java.util.Date(),1,0,0,model.FlightClass.Economy))
 
-      expectMsgPF() {
-        case "1" => "1"
+        expectMsgPF() {
+          case "1" => "1"
+        }
       }
-
     }
   }
 
@@ -227,21 +230,12 @@ class BaseFetcherActorSpec (_system: ActorSystem) extends TestKit(_system)
       }
 
     }
-/*
-    "phantomjs.testtimeout" in {
-      val fetcher = system.actorOf(Props[BaseFetcherActorTester])
 
-      fetcher ! (4,"t4")
-
-      expectMsgPF() {
-        case None => 
-      }
-
-    }
-*/
   }
 
 }
+
+
 object BaseFetcherActorSpec {
   class BaseFetcherActorTester extends actors.BaseFetcherActor {
     import context.dispatcher
