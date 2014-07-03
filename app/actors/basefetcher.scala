@@ -5,6 +5,13 @@ import scala.concurrent.{Future,Promise}
 import play.api.Logger
 
 
+
+class PhantomInitException(msg: String) extends RuntimeException(msg)
+class PhantomProcessException(msg: String) extends RuntimeException(msg)  
+// esli avialinija ne letaet po dannomu napravleniju otlichaetsja ot prosto 
+// esli netu biletov
+class NoFlightsException() extends RuntimeException("NOFLIGHTS")  
+
 abstract class BaseFetcherActor extends Actor {
 
   import sys.process._
@@ -12,8 +19,6 @@ abstract class BaseFetcherActor extends Actor {
 
   import context.dispatcher
   import scala.concurrent.duration._
-
-  class PhantomInitException(msg: String) extends RuntimeException(msg)
 
   var pid = 0 
 
