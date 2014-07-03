@@ -815,12 +815,13 @@ function debug() {
 }
 exports.debug = debug;
 
-exports.die   = function(err) {
+function die (err) {
     console.log("ERROR:"+err);
-    page.render('images/error1.png');
+    page.render('phantomjs/images/error1.png');
     phantom.exit();
     return false;
 }
+exports.die   =  die;
 
 exports.waitFor = function(selector,timeout,cb) {
     if ( timeout < 100) timeout = 100;
@@ -979,53 +980,6 @@ exports.selectJSSelect = function(value,button,container,element) {
 }
 
 
-function soap(ret) {
-    var ret2 = {};
-    for (var k in ret) {
-        var v = ret[k];
-        if ( v instanceof Array) {
-            var tv = [];
-            for (var i  = 0 ; i < v.length ; i++) {
-                tv.push(soap(v[i]));
-            }
-            ret2[k]=tv;
-            continue;
-        } 
-        else if (k=='deptime' || k == 'avltime') {
-            var t = v.match(/\d\d:\d\d/);
-            if (t && t.length > 0) v = t[0];
-        } else if ( k=="price") {
-            v = v.replace(",","").replace("\n","");
-            var t = v.match(/\d+\.\d{1,2}/);
-            if (t && t.length > 0) v = t[0];
-        } else if ( k == "fltype") {
-            var tv = v;
-            v = v.toLowerCase();
-            if ( v.indexOf("lowfare") != -1 ) v = "lowfare"; else v = "flex";
-            var t = tv.match(/Flight\W(\w+)/);
-            if (t && t.length > 0) {
-                ret2['flnum'] = t[1];
-            }
-
-        } else if ( k == 'depdate') {
-            var t = v.match(/(\w+) (\d{1,2})\. (\w+) (\d\d\d\d)\W(\d\d):(\d\d)/);
-            if (t && t.length > 0) {
-                var yyyy=t[4],MMs = t[3],dd=t[2],hh=t[5],mm=t[6];
-                if ( dd.length == 1) dd = "0"+dd;
-                v = yyyy + "-" + MMs + "-" + dd + " " + hh + ":" + mm;
-            }
-        } else if ( k == 'directions') {
-            var t = v.match(/^(.*) - (.*)$/);
-            if (t && t.length > 0) {
-                ret2['dstName'] = t[1];
-                ret2['avlName'] = t[2];
-            }
-        }
-        ret2[k]=v;
-    }
-    return ret2;
-}
-exports.soap = soap;
 
 function $$(selector) {
     if ( isObject(selector) && selector._selector ) {

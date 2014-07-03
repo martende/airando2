@@ -23,7 +23,7 @@ import play.api.test._
 import play.api.test.Helpers._
 
 import play.api._
-import play.api.libs.json.JsValue
+import play.api.libs.json._
 import play.api.libs.iteratee.Iteratee
 import scala.concurrent.duration._
 
@@ -70,8 +70,6 @@ class AVSParserSpecLive extends FunSuite with ScalaFutures {
       r => assert(r.length > 10)
         
     }
-    
-
 
   }
 
@@ -128,18 +126,30 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
   }
 
   "NorvegianAirlinesSpec " must {
+    "t2" in {
+      val t = new actors.PushResultsParser {
+
+      }
+      val results = """{"results":{"iataFrom":"ORY","iataTo":"BOJ","adults":1,"infants":0,"children":0,"tickets":[{"depdate":"2014-07-03T18:30:00.363Z","deptime":"20:30","flnum":"DY1497","flclass":"lowfare","points":[{"depdate":"2014-07-03T18:30:00.363Z","deptime":"20:30","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen","flnum":"DY1497","flclass":"lowfare"},{"depdate":"2014-07-03T21:30:00.363Z","deptime":"23:30","dstName":"oslo-gardermoen","avlName":"bourgas","iataFrom":"OSL","iataTo":"BOJ","directions":"Oslo-Gardermoen - Bourgas","flnum":"DY6270","flclass":"lowfare"}],"price":"693.90","avldate":"2014-07-04T18:30:00.363Z","avltime":"03:45"},{"depdate":"2014-07-03T18:30:00.325Z","deptime":"20:30","flnum":"DY1497","flclass":"flex","points":[{"depdate":"2014-07-03T18:30:00.325Z","deptime":"20:30","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen","flnum":"DY1497","flclass":"flex"},{"depdate":"2014-07-03T21:30:00.325Z","deptime":"23:30","dstName":"oslo-gardermoen","avlName":"bourgas","iataFrom":"OSL","iataTo":"BOJ","directions":"Oslo-Gardermoen - Bourgas","flnum":"DY6270","flclass":"flex"}],"price":"1003.10","avldate":"2014-07-04T18:30:00.325Z","avltime":"03:45"}]}}"""
+      var v = Json.parse(results) \ "results"
+      val ret = t.processPushResults(v)
+      assert(ret.iataFrom == "ORY")
+      assert(ret.tickets.length == 2)
+    }
+
     "t1" in {
       val fetcher = system.actorOf(Props[actors.NorvegianAirlines])
 
       within (1 minute) {
         fetcher ! actors.StartSearch(model.TravelRequest("CGN","BER",model.TravelType.OneWay,
-          new java.util.Date(),new java.util.Date(),1,0,0,model.FlightClass.Economy))
+          new java.util.Date(),new java.util.Date(),1,1,0,model.FlightClass.Economy))
 
         expectMsgPF() {
           case "1" => "1"
         }
       }
     }
+
   }
 
 }
