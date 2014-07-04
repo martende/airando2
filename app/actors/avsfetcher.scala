@@ -61,7 +61,7 @@ class AvsCacheParser extends actors.Caching {
 
   def fetchAviasalesCheapest(_iataFrom:String):Future[Seq[AVSCheapestAnswer]] = {
     val iataFrom = iataConverter.getOrElse(_iataFrom, _iataFrom  )
-    Logger.info(s"AvsCacheParser.fetchAviasalesCheapest iataFrom:$iataFrom")
+    Logger.info("AvsCacheParser.fetchAviasalesCheapest iataFrom:" + (if ( iataFrom == _iataFrom ) iataFrom else "(" + _iataFrom + " -> " + iataFrom   + ")" ) )
     val signature = md5(s"avs:$iataFrom")
     val holder = getFromCache(signature).fold {
       val url = s"http://api.aviasales.ru/v1/cities/$iataFrom/directions/-/prices.json?currency=EUR&token=${AVSParser.token}"
@@ -86,7 +86,7 @@ class AvsCacheParser extends actors.Caching {
         error match {
           case Some(ev) => 
             Logger.error(s"aviasales returns error '$ev'")
-            throw play.api.UnexpectedException(Some("aviasales returns error $error"))
+            throw play.api.UnexpectedException(Some(s"aviasales returns error $error"))
           case None => _parseCheapest((jv \ "data").as[JsObject])
         }
     }

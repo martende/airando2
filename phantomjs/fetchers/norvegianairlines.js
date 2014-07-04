@@ -365,7 +365,6 @@ function parseDate(v,tm) {
 
   if (t && t.length > 0) {
       var yyyy=t[4],MMs = t[3],dd=t[2],hh=t[5],mm=t[6];
-      console.log("PARSE DATE",v,hh,mm);
       var MM = monthsShort.indexOf(MMs);
       if ( MM == -1 ) utils.die("month not found");
       var d = new Date();
