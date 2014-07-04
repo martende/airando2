@@ -24,8 +24,8 @@ case class NRTicket(
   price: Float,
   flnum: String,
   depdate: java.util.Date,
-  avldate: java.util.Date,
-  //direct_flights: Seq[NRFlight],
+  avldate: Option[java.util.Date],
+  direct_flights: Seq[NRFlight],
   flclass: FlightClass
 )
 
@@ -41,25 +41,25 @@ case class NRRequest(
 trait PushResultsParser {
   val dateFormat = "yyyy-MM-dd'T'HH:mm"
 
+  implicit val fReads = (
+    (__ \ "iataFrom").read[String] and
+    (__ \ "iataTo").read[String] and
+    (__ \ "depdate").read[java.util.Date](Reads.dateReads(dateFormat))  and
+    (__ \ "avldate").read[java.util.Date](Reads.dateReads(dateFormat))  and
+    (__ \ "flclass").read[String] and
+    (__ \ "flnum").read[String]
+  )(NRFlight)
+
   implicit val tReads =  (
     (__ \ "price").read[String].map(_.toFloat) and
     (__ \ "flnum").read[String] and
     (__ \ "depdate").read[java.util.Date](Reads.dateReads(dateFormat))  and
     (__ \ "avldate").read[java.util.Date](Reads.dateReads(dateFormat))  and
+    (__ \ "direct_flights").read[Seq[NRFlight]] and
     (__ \ "flclass").read[String].map {
       case "lowfare" => Economy
       case _ => Business
     }
-    /*(__ \ "origin").read[String] and
-    (__ \ "destination").read[String] and
-    (__ \ "airline").read[String] and
-    (__ \ "duration").read[Int]  and
-    (__ \ "number").read[Int] and
-    (__ \ "arrival").read[Int] and
-    (__ \ "aircraft").readNullable[String] and
-    (__ \ "departure").read[Int] and
-    (__ \ "delay").read[Int]
-    */
   )(NRTicket)
 
   implicit val rReads = (
@@ -152,7 +152,7 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
           _sender ! SearchResult(tr,List())
         case Failure(e) => 
           Logger.error("Searching failed " + e.toString)
-          _sender ! "2"
+          _sender ! SearchResult(tr,List())
 
         case Success(x) => 
           _sender ! "1"
