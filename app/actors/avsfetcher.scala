@@ -57,7 +57,10 @@ case class AVSCheapestAnswer(
 
 class AvsCacheParser extends actors.Caching {
 
-  def fetchAviasalesCheapest(iataFrom:String):Future[Seq[AVSCheapestAnswer]] = {
+  def iataConverter = Map[String,String]("ORY"->"PAR")
+
+  def fetchAviasalesCheapest(_iataFrom:String):Future[Seq[AVSCheapestAnswer]] = {
+    val iataFrom = iataConverter.getOrElse(_iataFrom, _iataFrom  )
     Logger.info(s"AvsCacheParser.fetchAviasalesCheapest iataFrom:$iataFrom")
     val signature = md5(s"avs:$iataFrom")
     val holder = getFromCache(signature).fold {

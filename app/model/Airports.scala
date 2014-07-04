@@ -19,6 +19,26 @@ object FlightClass extends Enumeration {
   val Economy, Business = Value
 }
 
+case class Flight(
+  iataFrom: String,
+  iataTo: String,
+  airline: String,
+  duration: Int,
+  flnum: String,
+  depdate: java.util.Date,
+  avldate: java.util.Date,  
+  aircraft: Option[String],
+  delay: Int
+)
+
+case class Ticket(
+  sign: String,
+  direct_flights: Seq[Flight],
+  return_flights: Option[Seq[Flight]],
+  native_prices: Map[String,Float],
+  order_urls: Map[String,String]
+)
+
 case class TravelRequest(
   val iataFrom:String,
   val iataTo:String,

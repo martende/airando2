@@ -1079,6 +1079,21 @@ function $$(selector) {
         }
     }
 
+    function attr(attr) {
+      return page.evaluate(function(selector,attr) {
+        if ( ! window._query ) console.log("$$INJECT");
+        var d = _query(selector);
+        if ( d.length == 0 ) {
+          console.log("ERROR:attr:"+JSON.stringify(selector)+" element not found");
+          return null;
+        } else if ( d.length > 1 ) {
+            console.log("ERROR:attr:"+JSON.stringify(selector)+" many elements");
+            return null;
+        }
+        return d[0].getAttribute(attr);
+      },selector,attr);
+    }
+
     function contains(str) {
         return  dump().indexOf(str) != -1;      
     }
@@ -1088,8 +1103,8 @@ function $$(selector) {
             if ( ! window._query ) console.log("$$INJECT");
             var d = _query(selector);
             if ( d.length == 0 ) {
-                console.log("ERROR:click:"+JSON.stringify(selector)+" element not found");
-                return null;
+              console.log("ERROR:click:"+JSON.stringify(selector)+" element not found");
+              return null;
             } else if ( d.length > 1 ) {
                 console.log("ERROR:click:"+JSON.stringify(selector)+" many elements");
                 return null;
@@ -1113,6 +1128,7 @@ function $$(selector) {
         html: html,
         dump: dump,
         each: each,
+        attr: attr,
         evaluate: evaluate,
         eachAsync: eachAsync,
         click:click,
