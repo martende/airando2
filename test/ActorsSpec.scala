@@ -27,6 +27,7 @@ import play.api.libs.json._
 import play.api.libs.iteratee.Iteratee
 import scala.concurrent.duration._
 
+import java.text.SimpleDateFormat
 
 class AVSParserSpec extends FunSuite {
   import actors.avsfetcher._
@@ -103,6 +104,14 @@ class ManagerSpec(_system: ActorSystem) extends TestKit(_system)
       }
 
     }
+    "getCheapest(ORY)" in {
+      val r = actors.Manager.getCheapest("ORY")
+
+      whenReady(r) { 
+        r => assert(! r.isEmpty )
+      }
+
+    }
   }
 
 }
@@ -145,10 +154,26 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
           new java.util.Date(),new java.util.Date(),1,1,0,model.FlightClass.Economy))
 
         expectMsgPF() {
-          case "1" => "1"
+          case actors.SearchResult(tr,List()) => 
         }
       }
     }
+
+    "t3" in {
+      val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+      val fetcher = system.actorOf(Props[actors.NorvegianAirlines])
+
+      within (1 minute) {
+        fetcher ! actors.StartSearch(model.TravelRequest("ORY","FLL",model.TravelType.OneWay,
+          df.parse("2014-08-30"),df.parse("2014-08-30"),1,1,0,model.FlightClass.Economy))
+
+        expectMsgPF() {
+          case actors.SearchResult(tr,tkts) => 
+        }
+      }
+    }
+
 
   }
 

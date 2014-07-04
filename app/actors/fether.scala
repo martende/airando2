@@ -33,6 +33,7 @@ import java.util.Date
 import java.text.SimpleDateFormat
 
 case class StartSearch(tr:model.TravelRequest)
+case class SearchResult(tr:model.TravelRequest,ts:Seq[model.Ticket])
 case class Refresh()
 case class Subscribe()
 case class Connected( enumerator: Enumerator[ JsValue ] )
@@ -241,7 +242,8 @@ object Manager {
         case Some(from) => 
           val f = avsfetcher.AvsCacheParser.fetchAviasalesCheapest(iataFrom)
           val ret0 = f.map {
-            ret => ret.groupBy(_.iataTo).flatMap {
+            ret => 
+              ret.groupBy(_.iataTo).flatMap {
               case (iataTo,rs) => 
                 model.Airports.get(iataTo) match {
                   case Some(to) => 
@@ -258,7 +260,8 @@ object Manager {
                     Option.empty[model.FlightInfo]
                 }
             }.toSeq
-          }
+          }.recoverWith { case e: Exception =>  Future.successful(List.empty[model.FlightInfo]) } 
+
           ret0
 
         case None => 

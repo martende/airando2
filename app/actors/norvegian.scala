@@ -12,9 +12,11 @@ import akka.actor.ActorRef
 import model.FlightClass._
 
 case class NRFlight(
-  origin: String,
-  destination: String,
-  duration: Int,
+  iataFrom: String,
+  iataTo: String,
+  depdate: java.util.Date,
+  avldate: java.util.Date,  
+  flclassStr:String,
   flnum: String
 )
 
@@ -23,7 +25,7 @@ case class NRTicket(
   flnum: String,
   depdate: java.util.Date,
   avldate: java.util.Date,
-  //flights: Seq[NRFlight],
+  //direct_flights: Seq[NRFlight],
   flclass: FlightClass
 )
 
@@ -37,7 +39,7 @@ case class NRRequest(
 )
 
 trait PushResultsParser {
-  val dateFormat = "yyyy-MM-dd'T'HH:mm:ss.S'Z'"
+  val dateFormat = "yyyy-MM-dd'T'HH:mm"
 
   implicit val tReads =  (
     (__ \ "price").read[String].map(_.toFloat) and
@@ -145,6 +147,9 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
           } else
             Logger.info(s"Recv $x")
       } onComplete {
+        case Failure(e:NoFlightsException) => 
+          Logger.warn(s"Searching ${tr.iataFrom}->${tr.iataTo} is not availible" )
+          _sender ! SearchResult(tr,List())
         case Failure(e) => 
           Logger.error("Searching failed " + e.toString)
           _sender ! "2"

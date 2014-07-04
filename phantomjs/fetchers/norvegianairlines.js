@@ -113,6 +113,13 @@ function done() {
   utils.debug("render to phantomjs/images/success.png");
   page.render("phantomjs/images/success.png");
 
+  for ( var i = 0 ; i < tickets.length ; i++ ) {
+    var t = tickets[i];
+    for ( var j = 0 ; j < t.direct_flights.length ; j++ ) {
+      var p = t.direct_flights[j];
+
+    }
+  }
   console.log("PUSH:"+JSON.stringify({
     results: {
       iataFrom:args.iataFrom,
@@ -257,7 +264,7 @@ function processOneTrack(i,cnt,pattern,cb) {
     price = trs[lastI].innerText;
 
     return {
-      points: points,
+      direct_flights: points,
       price:  price,
       flclass:  points[0].flclass,
       deptime: points[0].deptime,
@@ -270,7 +277,8 @@ function processOneTrack(i,cnt,pattern,cb) {
     ret.avltime = pattern.avltime;
     ret = soap(ret);
     partialret = ret;
-    if ( ret.flclass != pattern.flclass || ret.deptime != pattern.deptime ) ret = null;
+    if ( $$(["table.selectiontable",0]).attr("dirty") ) ret = null;
+    //if ( ret.flclass != pattern.flclass || ret.deptime != pattern.deptime ) ret = null;
   }
   
   if ( ! ret ) {
@@ -342,15 +350,22 @@ function processArgs(_a) {
 		utils.die("ERROR:traveltype - return not supported");
 	}
 	a.traveltype = a.traveltype == "oneway" ? 1 : 2;
+  a.infants=parseInt(a.infants);
+  a.adults=parseInt(a.adults);
+  a.childs=parseInt(a.childs);
   return a;
 }
 
 var monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function parseDate(v) {
+function parseDate(v,tm) {
   var t = v.match(/(\w+) (\d{1,2})\. (\w+) (\d\d\d\d)\W(\d\d):(\d\d)/);
+  //var t2 = v.match(/\d\d:\d\d/);
+  //if (t2 && t2.length > 0) tm = t2[0];
+
   if (t && t.length > 0) {
       var yyyy=t[4],MMs = t[3],dd=t[2],hh=t[5],mm=t[6];
+      console.log("PARSE DATE",v,hh,mm);
       var MM = monthsShort.indexOf(MMs);
       if ( MM == -1 ) utils.die("month not found");
       var d = new Date();
@@ -360,12 +375,24 @@ function parseDate(v) {
       d.setHours(hh);
       d.setMinutes(mm);
       d.setSeconds(0);
+
+
       return d;
       //v = yyyy + "-" + MMs + "-" + dd + " " + hh + ":" + mm;
   } else {
     utils.die("parseDate:" + v + " failed");
     return null;
   }
+}
+
+function formatDate(date) {
+    var d = date.getDate();
+    var m = date.getMonth() + 1;
+    var y = date.getFullYear();
+    var h = date.getHours();
+    var mm = date.getMinutes();
+    return '' + y + '-' + (m<=9 ? '0' + m : m) + '-' + (d <= 9 ? '0' + d : d) +
+    "T"+ (h<=9 ? '0' + h : h) + ":" + (mm<=9 ? '0' + mm : mm) ;
 }
 
 function soap(ret) {
@@ -384,17 +411,18 @@ function soap(ret) {
             var t = v.match(/\d\d:\d\d/);
             if (t && t.length > 0) v = t[0];
         } else if (k == 'avltime') {
-          var t = v.match(/(\d\d:\d\d)( \+1)?/);
-          if (t && t.length > 0) {
-            if ( t.length == 3 ) {
+          var t = v.match(/(\d\d):(\d\d)( \+1)?/);
+          if (t && t.length > 0) {    
               if ( ret['depdate'] ) {
                 var date = parseDate(ret['depdate']);
-                date.setDate(date.getDate() + 1);
-                ret2['avldate'] = date.toISOString();
+                date.setHours(t[1]);
+                date.setMinutes(t[2]);
+                if ( t.length == 4 ) {
+                  date.setDate(date.getDate() + 1);
+                }
+                ret2['avldate'] = formatDate(date);
               }
-            }
-            
-            v = t[1];
+            v = t[1] +":"+ t[2];
           }
         } else if ( k=="price") {
             v = v.replace(",","").replace("\n","");
@@ -403,14 +431,15 @@ function soap(ret) {
         } else if ( k == "flclass") {
             var tv = v;
             v = v.toLowerCase();
-            if ( ! ( v == 'lowfare' || v == 'premiumlowfare' || v == 'flex' || v == 'premiumflex') ) {
-              if ( v.indexOf("premiumlowfare") != -1 ) v = "premiumlowfare"; 
+            if ( ! ( v == 'lowfare' || v == 'premium' || v == 'flex' || v == 'premiumflex' ) ) {
+              if ( v.indexOf("premiumlowfare") != -1 ) v = "premium"; 
               else if ( v.indexOf("premiumflex") != -1 ) v = "premiumflex";
               else if ( v.indexOf("flex") != -1 ) v = "flex";
               else if ( v.indexOf("lowfare") != -1 ) v = "lowfare";
+              else if ( v.indexOf("premium") != -1 ) v = "premium";
               else {
-                v = "flex";
-                console.log("WARN: flclass " + v + " not recongnized");
+                console.log("WARN: flclass '" + v + "' not recongnized");
+                v = "flex";                
               }
             }
             
@@ -421,7 +450,7 @@ function soap(ret) {
 
         } else if ( k == 'depdate') {
           var date = parseDate(v);
-          v = date.toISOString();
+          v = formatDate(date);
 /*
             var t = v.match(/(\w+) (\d{1,2})\. (\w+) (\d\d\d\d)\W(\d\d):(\d\d)/);
             if (t && t.length > 0) {
