@@ -112,7 +112,7 @@ define([
       var attrs = {
         'avc':avsa.length,
         'flc':flc,
-        'stopsHtml' : this.createStopsHtml(flc,infoText,innerInfo),
+        'stopsHtml' : this.createStopsHtml(flc,infoText,innerInfo,1),
         'avlines':avsa,
         'ft':im.getTimeHtml(f.departure),
         'tt':im.getTimeHtml(l.arrival),
@@ -151,7 +151,7 @@ define([
           'r_tiata': r_l.destination,
           'r_ft':im.getTimeHtml(r_f.departure),
           'r_tt':im.getTimeHtml(r_l.arrival),
-          'r_stopsHtml':this.createStopsHtml(r_flc,r_infoText,r_innerInfo),
+          'r_stopsHtml':this.createStopsHtml(r_flc,r_infoText,r_innerInfo,-1),
           'returnDuration':this.humanizeDuration(r_duration),
           'returnDepDate':im.humanizeDate(r_f.departure),
           'returnAvlDate':im.humanizeDate(r_l.arrival),
@@ -217,13 +217,15 @@ define([
       }
       return deproutes;
     },
+    /*
     createStopsHtml: function(n,infoText,i) {
       var m = "&#xf068;";
-      var o = "&#xf10c;"
+      var o = "&#xf10c;";
+      var sa = "<span class=\"arrow\">&#xf061;</span>";
       if ( n == 0 ) {
-        return "<span title=\""+infoText+"\">"+m+m+m+m+m+m+m+"</span>";
+        return "<span title=\""+infoText+"\">"+sa+m+m+m+m+m+m+m+"</span>";
       } else if ( n == 1 ) {
-        return "<span title=\""+infoText+"\">"+m+m+m+"<span title=\""+i[0]+"\">"+o+"</span>"+m+m+m+"</span>";       
+        return "<span title=\""+infoText+"\">"+sa+m+m+"<span title=\""+i[0]+"\">"+o+"</span>"+m+m+sa+"</span>";       
       } else if ( n == 2 ) {
         return "<span title=\""+infoText+"\">"+m+m+
           "<span title=\""+i[0]+"\">"+o+"</span>"+m+
@@ -232,7 +234,29 @@ define([
       } else if ( n == 3 ) {
         return "<span title=\""+infoText+"\">&#xf068;&#xf10c;&#xf068;&#xf10c;&#xf068;&#xf10c;&#xf068;</span>";       
       }
+    },*/
+    createStopsHtml: function(n,infoText,i,direction) {
+      var m = "<i class=\"fa fa-minus\"></i>";
+      var o = "<i class=\"fa fa-circle-o\"></i>";
+      var sa = "<i class=\"fa fa-chevron-"+(direction == 1 ? "right" : "left" )+"\"></i>";
+      if ( n == 0 ) {
+        return "<span title=\""+infoText+"\">"+m+m+m+sa+m+m+m+m+"</span>";
+      } else if ( n == 1 ) {
+        return "<span title=\""+infoText+"\">"+m+sa+m+m+"<span title=\""+i[0]+"\">"+o+"</span>"+m+m+sa+m+"</span>";       
+      } else if ( n == 2 ) {
+        return "<span title=\""+infoText+"\">"+m+sa+m+
+          "<span title=\""+i[0]+"\">"+o+"</span>"+m+
+          "<span title=\""+i[1]+"\">"+o+"</span>"+
+          m+sa+m+"</span>";
+      } else if ( n == 3 ) {
+        return "<span title=\""+infoText+"\">"+m+sa+m+
+          "<span title=\""+i[0]+"\">"+o+"</span>"+m+
+          "<span title=\""+i[1]+"\">"+o+"</span>"+
+          "<span title=\""+i[2]+"\">"+o+"</span>"+
+          m+sa+m+"</span>";
+      }
     },
+
     humanizeCityVia: function(city) {
       var lang = window.initData.lang;
       if ( lang == 'ru') {

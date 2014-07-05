@@ -15,7 +15,7 @@ case class NRFlight(
   iataFrom: String,
   iataTo: String,
   depdate: java.util.Date,
-  avldate: java.util.Date,  
+  avldate: Option[java.util.Date],  
   flclassStr:String,
   flnum: String
 )
@@ -24,10 +24,18 @@ case class NRTicket(
   price: Float,
   flnum: String,
   depdate: java.util.Date,
-  avldate: Option[java.util.Date],
+  avldate: java.util.Date,
   direct_flights: Seq[NRFlight],
   flclass: FlightClass
-)
+) {
+  val dformatter = new java.text.SimpleDateFormat("yyyyMMddHHmm");
+  lazy val sign = {
+    val parts = direct_flights.map {
+      f => dformatter.format(f.depdate) + f.iataFrom 
+    } :+ (dformatter.format(avldate) + direct_flights.last.iataTo)
+    parts.mkString(":")
+  }
+}
 
 case class NRRequest(
   iataFrom:String,
@@ -45,7 +53,7 @@ trait PushResultsParser {
     (__ \ "iataFrom").read[String] and
     (__ \ "iataTo").read[String] and
     (__ \ "depdate").read[java.util.Date](Reads.dateReads(dateFormat))  and
-    (__ \ "avldate").read[java.util.Date](Reads.dateReads(dateFormat))  and
+    (__ \ "avldate").readNullable[java.util.Date](Reads.dateReads(dateFormat))  and
     (__ \ "flclass").read[String] and
     (__ \ "flnum").read[String]
   )(NRFlight)
@@ -86,28 +94,49 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
   import context.dispatcher
   import context.become
 
+  val logger = Logger("NorvegianAirlines")
+
   var srcIatas:Set[String] = null
   var dstIatas:Set[String] = null
-  var tickets = Array[NRTicket]()
 
   case class UpdateSrcIatas(v:Set[String])
   case class UpdateDstIatas(v:Set[String])
   case class AddTickets(v:Seq[NRTicket])
+  case class Complete()
 
-  def waitAnswer(sender:ActorRef):PartialFunction[Any, Unit] = {
+  def waitAnswer(sender:ActorRef,currentRequest:model.TravelRequest ):PartialFunction[Any, Unit] = {
+    var tickets = Array[NRTicket]()
+    val _waiter:PartialFunction[Any, Unit] = {
     case UpdateSrcIatas(v) => srcIatas = v
     case UpdateDstIatas(v) => dstIatas = v
-    case AddTickets(v:Seq[NRTicket])     => tickets = tickets ++ v 
+    case AddTickets(v:Seq[NRTicket]) => tickets = tickets ++ v
+    case Complete() => 
+      val tickets2send = tickets.groupBy(_.sign).map {
+        t => 
+        if ( currentRequest.flclass ==  Business)
+          t._2.filter( _.flclass == Business ).minBy(_.price)  
+        else 
+          t._2.minBy(_.price)
+      }.map {
+        tkt:NRTicket => model.Ticket(tkt.sign,tkt.direct_flights.map {
+          fl => model.Flight(fl.iataFrom,fl.iataTo,"NR",0,fl.flnum,fl.depdate,fl.avldate,None,0)
+        },None,Map(),Map())
+      }.toSeq
+
+      sender ! SearchResult(currentRequest,tickets2send)
+      become(receive)
+    }  
+    _waiter
   }
+  
   
   def iataMapper(iata:String) = if (iata == "BER" ) "BERALL" else iata
   def receive = {
     
     case StartSearch(tr) => 
       val _sender:ActorRef = sender
-      Logger.info(s"StartSearch ${tr}")
-        
-      become(waitAnswer(_sender))
+      logger.info(s"StartSearch ${tr}")
+      become(waitAnswer(_sender,tr))
       
       val dformatter = new java.text.SimpleDateFormat("yyyy-MM-dd");
 
@@ -125,7 +154,7 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
             throw new PhantomInitException(x)
           else if ( x.startsWith("PUSH:") ) {
             val data = x.substring(5)
-            Logger.debug( "Push: " + data ) 
+            logger.debug( "Push: " + data ) 
             Json.parse(data) match {
               case JsString(s) => 
                 throw new PhantomInitException(s"push awaits JSON as answer but string found '$s'")
@@ -134,29 +163,35 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
                   processPush(k,v)
                 }
                 //processPush(js.)
+                true
               case s => 
                 throw new PhantomInitException(s"push awaits JSON as answer but found '$s'")
             }
+            
           } else if ( x.startsWith("ERROR:") ) {
             val data = x.substring(6)
-            println(data)
             data match {
               case "NOFLIGHTS" => throw new NoFlightsException()
               case _ => throw new PhantomProcessException(s"Error received: $data")
             }
-          } else
-            Logger.info(s"Recv $x")
+          } else if ( x.startsWith("SUCCESS") ) {
+            //self ! SuccessFlag()
+            false
+          } else {
+            logger.info(s"Recv $x")
+            true
+          }
       } onComplete {
         case Failure(e:NoFlightsException) => 
-          Logger.warn(s"Searching ${tr.iataFrom}->${tr.iataTo} is not availible" )
-          _sender ! SearchResult(tr,List())
+          logger.warn(s"Searching ${tr.iataFrom}->${tr.iataTo} is not availible" )
+          self ! Complete()
         case Failure(e) => 
-          Logger.error("Searching failed " + e.toString)
-          _sender ! SearchResult(tr,List())
+          logger.error("Searching failed " + e.toString)
+          self ! Complete()
 
         case Success(x) => 
-          _sender ! "1"
-          println("Complete ",x)
+          self ! Complete()
+          logger.info("Complete")
       }
 
 
@@ -170,7 +205,7 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
       case "dep" => self ! UpdateDstIatas(v.as[List[String]].toSet)
       case "results" => 
         val r = processPushResults(v)
-        println(r)
+        self ! AddTickets(r.tickets)
       case _ => Logger.error("processPush: unknown key " + k)
     }
   }

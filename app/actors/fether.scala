@@ -33,7 +33,11 @@ import java.util.Date
 import java.text.SimpleDateFormat
 
 case class StartSearch(tr:model.TravelRequest)
-case class SearchResult(tr:model.TravelRequest,ts:Seq[model.Ticket])
+
+class SearchResponse(tr:model.TravelRequest)
+case class SearchResult(tr:model.TravelRequest,ts:Seq[model.Ticket]) extends SearchResponse(tr)
+case class SearchError(tr:model.TravelRequest,e:Throwable) extends SearchResponse(tr)
+
 case class Refresh()
 case class Subscribe()
 case class Connected( enumerator: Enumerator[ JsValue ] )
@@ -86,6 +90,7 @@ class ExternalGetter extends Actor with Caching {
   var schedule:Cancellable = _
   var buffer:List[JsValue] = List()
 
+  val norvegianAirlines = Akka.system.actorOf(Props[actors.NorvegianAirlines])
 
   import actors.avsfetcher._
 
@@ -129,8 +134,25 @@ class ExternalGetter extends Actor with Caching {
     case StartSearch(tr) => 
       Logger.info(s"StartSearch ${tr}")
       /*schedule = Akka.system.scheduler.schedule( 0.seconds, 1.second, self, Refresh )*/
-      fetchAviasales(tr) onComplete {
+
+      val norvegianAirlinesFut = ask(norvegianAirlines,StartSearch(tr))(Timeout(5 seconds))
+      val avsFut = fetchAviasales(tr)
+
+      norvegianAirlinesFut onComplete {
+        case Success(SearchResult(tr,tickets)) => 
+          Logger.info(s"Norvegian airlines returns: $tickets")
+        case Success(x) => 
+          Logger.error(s"Norvegian airlines returns bad answer: $x")
+        case Failure(t) => 
+          Logger.error("An error has occured: " + t.getMessage)
+          //broadcast(Json.obj("error"->500))
+          //channel.end()
+      }
+
+      avsFut onComplete {
         case Success((tickets,gates,curencies,airlines)) => 
+          Logger.info(s"Aviasales returns: ${tickets.length} results")
+
           implicit val avsFormat = Json.format[AVSFlights]
           implicit val ticketFormat = Json.format[AVSTicket]
           implicit val avgFormat = Json.format[AVSGate]
@@ -145,6 +167,34 @@ class ExternalGetter extends Actor with Caching {
           channel.end()
         case Failure(t) => 
           Logger.error("An error has occured: " + t.getMessage)
+          //broadcast(Json.obj("error"->500))
+          //channel.end()
+      }
+
+      val allFetchers = List(norvegianAirlinesFut,avsFut).map {
+        f => f.recover {
+          case e => SearchError(tr,e)
+        }
+      }
+
+      val allFetchersFut = Future.sequence(allFetchers)
+
+      allFetchersFut onComplete {
+        case Success(results:List[_]) => 
+          val failed = results.count(_.isInstanceOf[SearchError])
+          val total  = results.length
+          if ( failed == total) {
+            Logger.error("allFetchers returend errror- errors")
+            broadcast(Json.obj("error"->500))
+          } else if ( failed > 0 ) {
+            Logger.warn(s"$failed of $total fetchers failed")
+          } else {
+            Logger.info("Fetching succesfully ended")  
+          }
+
+          channel.end()
+        case Failure(ex) => 
+          Logger.error("allFetchers - error occured: " +ex.getMessage)
           broadcast(Json.obj("error"->500))
           channel.end()
       }
