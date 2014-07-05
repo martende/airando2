@@ -26,7 +26,7 @@ case class Flight(
   duration: Int,
   flnum: String,
   depdate: java.util.Date,
-  avldate: java.util.Date,  
+  avldate: Option[java.util.Date],  
   aircraft: Option[String],
   delay: Int
 )

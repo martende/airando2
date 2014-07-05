@@ -23,7 +23,7 @@ abstract class BaseFetcherActor extends Actor {
   var pid = 0 
 
   
-  def execAsync(cmd:Seq[String])(fn: String=>Unit) = {
+  def execAsync(cmd:Seq[String])(fn: String=>Boolean) = {
     Logger.info(s"execAsync ${cmd.mkString(" ")}")
     pid+=1
 

@@ -233,6 +233,7 @@ time {
 	background-color:#ecefff;
 	box-shadow: 10px 10px 90px 30px @color4 inset;	
 	padding-top: 10px;
+	width: 1235px;
 	.navbar {
 		color:#fff;
                 // display:none;
@@ -259,6 +260,8 @@ time {
 		form {
 			padding-top:10px;
 			padding-bottom:0px;
+			margin-bottom:0px;
+			margin-top:0px;
 			padding-left:15px - @eldif;
 		}
 		.bottom {
@@ -351,7 +354,7 @@ time {
 		}
 		#search {
 			position: absolute;
-			bottom:15px;
+			bottom:10px;
 			right:20px;
 		}
 
@@ -456,7 +459,7 @@ time {
 			margin-bottom: 5px;
 			border-top: 1px solid @color4;
 		}
-		.group3,.group4 {
+		.group3 {
 			padding-right: 10px;
 		}
 		.group2 {
@@ -466,16 +469,17 @@ time {
 			position: absolute;
 			bottom: 0px;
 			right: 0px;
-			left: 0px;
+			left: 10px;	
 			time {
 				font-size: 14px;
 			}
 		}
-		.direct .group4 {
-			left: 10px;	
-		}
+		
 		.group5 {
 			margin-bottom: 20px;
+			border: 1px solid;
+			border-radius: 5px;
+			padding: 10px;
 		}
 		.city,.airport {
 			overflow: hidden;
@@ -492,7 +496,7 @@ time {
 			margin-bottom: 3px;
 		}
 		
-		.cell.direct {
+		.cell {
 			padding-left: 10px;
 		}
 		.cell {
@@ -863,7 +867,14 @@ time {
 			&._3,&._3 time {
 				color: @color6;
 			}
+			
 			.stops {
+				.fa-chevron-right,.fa-chevron-left {
+					width:0px;
+					position: relative;
+					left: -4px;
+				}
+
 				margin-top: -7px;
 				font-family: FontAwesome;
 				letter-spacing: -1px;
@@ -871,6 +882,15 @@ time {
 
 				.notextselect;
 			}
+			&._0 .fa-chevron-left {left:  3px;}
+			&._0 .fa-chevron-right {left: 4px;}
+			&._1 .fa-chevron-left {left: -4px;}
+			&._1 .fa-chevron-right {left: -4px;}
+			&._2 .fa-chevron-left {left: -4px;}
+			&._2 .fa-chevron-right {left: -4px;}
+			&._3 .fa-chevron-left {left: -4px;}
+			&._3 .fa-chevron-right {left: -4px;}
+			
 		}
 	}
 }

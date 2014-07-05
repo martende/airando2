@@ -49,7 +49,7 @@ define([
         this.placholder.css({
             top: '0px',
             left: this.$input.offset().left - this.$input.parent().offset().left,
-            'height':        this.$input.outerHeight() +2 , // display: table comes with border 
+            'height':        this.$input.outerHeight() , // display: table comes with border  +2 was used for old chrome 
             'width':         this.$input.outerWidth(),
             //'margin-bottom': this.$el.css("margin-bottom"),
             //'margin-top':    this.$el.css("margin-top")
@@ -59,11 +59,6 @@ define([
 
         this.placholder.click(this.onplclick.bind(this));
         this.placholder.hide();
-
-        console.log("locView", $.ui);
-        if ( !  this.$input.autocomplete ) {
-          console.log("input.autocomplete");
-        }
 
         this.$input.autocomplete({
             minLength: 2,

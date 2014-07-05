@@ -1,10 +1,14 @@
 @(direction:String)(implicit l: Lang)
 <div class="group3">
   <div class="pull-left">
-    Departs: <span class="date"><%- @(direction+"DepDate") %></span>
+  @if(direction=="direct") {
+  Departs:
+  } else {
+  Returns:
+  } <span class="date"><%- @(direction+"DepDate") %></span>
   </div>
   <div class="clearfix"></div>
-  <hr>
+  
 </div>
 <div class="group5">
   <%  _.each( @(direction+"Fl"), function( t ){  %>
@@ -57,7 +61,7 @@
   <% }); %>
 </div>
 <div class="group4">
-  <hr>
+  
   <div class="pull-left">
     Arrives: <span class="date"><%- @(direction+"AvlDate") %></span>
   </div>
