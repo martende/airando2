@@ -29,8 +29,11 @@ import play.api.libs.json.Reads._
 
 import play.api.i18n.Lang
 
-
 import play.api.libs.iteratee.Enumerator
+
+// Locals 
+
+import model.Gate
 
 trait Track extends Controller {
   private[Track] implicit val timeout = Timeout(5 seconds)
@@ -59,8 +62,8 @@ trait Track extends Controller {
     def flights_updater = __.read[JsArray].map {
           df => JsArray( df.value.map {
             fl => 
-              val fromIata = (fl \ "origin").as[JsString].value
-              val toIata = (fl \ "destination").as[JsString].value
+              val fromIata = (fl \ "iataFrom").as[JsString].value
+              val toIata = (fl \ "iataTo").as[JsString].value
               val (fromName,fromCityName) = model.Airports.get(fromIata).fold( ("","") ) {
                 x => (x.name,x.city)
               }
@@ -85,9 +88,7 @@ trait Track extends Controller {
           x => 
             val tkts = (x \ "tickets").asOpt[JsArray].map {
               case JsArray(xs) => Json.obj("tickets" -> JsArray(
-                xs.map {
-//                  tkt => (tkt.transform(direct_flights_transform).get).transform(return_flights_transform).get
-                  tkt => 
+                xs.map { tkt => 
                    val dft = (tkt transform direct_flights_transform get) 
                    dft.transform(return_flights_transform).getOrElse( dft )
 
@@ -98,6 +99,7 @@ trait Track extends Controller {
             //x ++ tkts.fold(None)
         }
       )
+    var sentGates:Set[String] = Set() 
     if ( cb forall Character.isDigit ) 
       getActorRef(id) match {
         case None => 
@@ -110,10 +112,28 @@ trait Track extends Controller {
                 enumerator.map {
                   x => 
                   val y = try {
+                    val gates = (x \ "tickets").asOpt[JsArray].map {
+                      x => x.value.flatMap { tkt => (tkt \ "order_urls").as[JsObject].keys } .toSet
+                    }
+                    val gatesObjs = gates match {
+                      case Some(gset) => 
+                          val fgset = gset.filter { x=>
+                            ! sentGates.contains(x)
+                          }.toSeq
+                          actors.Manager.getGates(fgset).toSeq
+                      case None => List()
+                    }
+                    println("GATESNE",gates,gatesObjs)
+                    implicit val gatesWrites = Json.writes[Gate]
+
                     x.transform(
                       tickets_transform
                     ) match {
-                      case JsSuccess(ret,_) => ret
+                      case JsSuccess(ret,_) => 
+                        val gatesObj = if (gatesObjs.length > 0 ) Json.obj("gates" -> Json.toJson(gatesObjs)) else Json.obj()
+
+                        val rr = gatesObj ++ret.as[JsObject] 
+                        rr
                       case JsError(errors) => 
                         Logger.error("Json postprocessing error")
                         for ( (path,elist) <- errors) {
@@ -127,13 +147,15 @@ trait Track extends Controller {
                   } catch {
                     case e : Throwable => 
                       Logger.error("Postprocessing error",e)
+                      Logger.error("DATA: "+x)
                       Json.obj(
                         "error" -> "500",
                         "ok" -> 0
                       )  
                   }
-
+                  
                   s"""<script type="text/javascript">parent.cb$cb({ok:1,data:$y});</script>\n"""
+
                 } >>> 
                 Enumerator(s"""<script type="text/javascript">parent.cb$cb(null);</script>\n""")
               ).as("text/html")

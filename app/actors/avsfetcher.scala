@@ -11,8 +11,8 @@ import play.api.libs.concurrent.Execution.Implicits._
 import scala.concurrent.{Await,Future}
 
 case class AVSFlights(
-  origin: String,
-  destination: String,
+  iataFrom: String,
+  iataTo: String,
   airline: String,
   duration: Int,
   number: Int,
@@ -32,12 +32,13 @@ case class AVSTicket(
   order_urls: Map[String,String]
 )
 
+/*
 case class AVSGate(
   id: String,
   label: String,
   currency_code:String
 )
-
+*/
 
 case class AVSAirline(
   id: String,
@@ -161,9 +162,9 @@ object AVSParser extends actors.AnyParser {
 
   implicit val avgReads = (
     (__ \ "id").read[String] and
-    (__ \ "label").read[String] and
-    (__ \ "currency_code").read[String] 
-  )(AVSGate)
+    (__ \ "currency_code").read[String] and
+    (__ \ "label").read[String] 
+  )(model.Gate)
 
   def parse(response:String) = {
     val xp = Json.parse(response)
@@ -177,14 +178,15 @@ object AVSParser extends actors.AnyParser {
   def _parse(xp:JsValue) = {
     val searchId = (xp \ "search_id").as[String]
 
-    val gates:Seq[AVSGate] = 
-    (xp \ "gates_info" ).validate[Seq[AVSGate]] match {
+    val gates:Seq[model.Gate] = 
+    (xp \ "gates_info" ).validate[Seq[model.Gate]] match {
       case s: JsSuccess[_] => s.get
       case e: JsError => 
         Logger.error("aviasales.ru Parsing AVSGate Errors: " + JsError.toFlatJson(e).toString()) 
         throw play.api.UnexpectedException(Some("aviasales.ru parsing AVSGate failed"))
     }
 
+    
     val airlines:Seq[AVSAirline] = (xp \ "airlines" ).as[JsObject].fields.map { 
       x =>  AVSAirline(
         x._1,
@@ -209,7 +211,7 @@ object AVSParser extends actors.AnyParser {
     }
 
     val g2cc = gates.map { x => 
-      x.id.toString -> x.currency_code
+      x.id.toString -> x.currency
     }.toMap
     
     val eur = cur2rub("eur")
@@ -248,7 +250,9 @@ object AVSParser extends actors.AnyParser {
     //val ret = s"len ${data.length}\n" + data
 
     //Ok(ret + "\n\n\n" )
-    (data,gates,cur2eur,airlines)
+    actors.Manager.updateGates(gates)
+
+    (data/*,gates*/,cur2eur,airlines)
 
   }
 }

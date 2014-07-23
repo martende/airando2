@@ -11,7 +11,7 @@ object Global extends GlobalSettings {
 
   override def onStart(app: Application) {
 
-    Logger.info(s"Load configuration devMode=${play.api.Play.isDev} testMode=${play.api.Play.isTest}")
+    Logger.info(s"Load configuration2 devMode=${play.api.Play.isDev} testMode=${play.api.Play.isTest}")
 
     prepareInitialData(app)
 

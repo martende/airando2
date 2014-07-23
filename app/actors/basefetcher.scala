@@ -11,6 +11,7 @@ class PhantomProcessException(msg: String) extends RuntimeException(msg)
 // esli avialinija ne letaet po dannomu napravleniju otlichaetsja ot prosto 
 // esli netu biletov
 class NoFlightsException() extends RuntimeException("NOFLIGHTS")  
+class ParseException(s:String) extends RuntimeException(s)  
 
 abstract class BaseFetcherActor extends Actor {
 
@@ -59,7 +60,7 @@ abstract class BaseFetcherActor extends Actor {
       
 
       val r = Future.firstCompletedOf(Seq(fatalPromise.future,exec))
-        
+
       // postprocessing cleanup
       r.onComplete {
         _ => 

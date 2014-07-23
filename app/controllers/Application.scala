@@ -155,7 +155,7 @@ object Application extends Controller with CookieLang with Track {
       },
 
       userData => {
-        println(userData)
+        Logger.info(s"Start searching tr:$userData")
         val searchActor = actors.Manager.startSearch(userData)
         Ok(Json.obj(
           "id" -> searchActor
@@ -174,14 +174,14 @@ object Application extends Controller with CookieLang with Track {
       //NotFound.asInstanceOf[SimpleResult]
       Ok(views.html.result(
         model.TravelRequest(
-        "CGN",
+        "HEL",
         "BER",
-        TravelType.Return,
+        TravelType.OneWay,
         new java.util.Date(114,7,12),
         new java.util.Date(114,7,18),
         1,0,0,FlightClass.Economy
         ),
-        Airports.get("CGN").get,
+        Airports.get("HEL").get,
         Airports.get("BER"),
         currency
         )

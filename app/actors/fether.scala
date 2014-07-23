@@ -7,7 +7,7 @@ import akka.actor.{Actor,Props,Identify, ActorIdentity,ActorSystem,ActorRef,Canc
 import play.api.Logger
 import play.api.Play.current
 
-import scala.concurrent.{Await,Future}
+import scala.concurrent.{Await,Future,Promise}
 import scala.util.{Try, Success, Failure}
 
 import akka.pattern.ask
@@ -22,7 +22,7 @@ import play.api._
 import play.api.libs.ws._
 
 // Json
-import play.api.libs.json.{JsValue,Json}
+import play.api.libs.json.{JsValue,Json,JsObject}
 //import play.api.libs.functional.syntax._
 
 // TravelType enum import
@@ -31,6 +31,10 @@ import model.FlightClass._
 
 import java.util.Date
 import java.text.SimpleDateFormat
+
+import play.api.libs.json._
+import play.api.libs.functional.syntax._
+import play.api.libs.json.Reads._
 
 case class StartSearch(tr:model.TravelRequest)
 
@@ -83,16 +87,44 @@ abstract class AnyParser {
   val id:String
 }
 
+class Supervisor extends Actor {
+  import akka.actor.OneForOneStrategy
+  import akka.actor.SupervisorStrategy._
+  import scala.concurrent.duration._
+
+  override val supervisorStrategy =
+    OneForOneStrategy(maxNrOfRetries = 3, withinTimeRange = 1 minute) {
+      case _: ArithmeticException      => Resume
+      case _: NullPointerException     => Restart
+      case _: IllegalArgumentException => Stop
+      case _: Exception                => Restart
+    }
+
+  def receive = {
+    case p: Props => sender ! context.actorOf(p)
+  }
+}
+
+object ExternalGetter {
+  implicit val timeout = Timeout(5 seconds)
+  val supervisor = Akka.system.actorOf(Props[Supervisor])
+  val norvegianAirlines = Await.result((supervisor ? Props[actors.NorvegianAirlines]).mapTo[ActorRef], timeout.duration)
+  //val norvegianAirlines = Akka.system.actorOf(Props[actors.NorvegianAirlines])  
+}
+
 class ExternalGetter extends Actor with Caching {
+  import ExternalGetter._
+  
   val ( enumerator, channel ) = Concurrent.broadcast[JsValue]
 
   var idx = 0
   var schedule:Cancellable = _
   var buffer:List[JsValue] = List()
+  val logger = Logger("ExternalGetter")
 
-  val norvegianAirlines = Akka.system.actorOf(Props[actors.NorvegianAirlines])
-
+  
   import actors.avsfetcher._
+  import model.{Flight,Ticket}
 
   def fetchAviasales(tr:model.TravelRequest) = {
     val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
@@ -106,7 +138,7 @@ class ExternalGetter extends Actor with Caching {
       "search[params_attributes][adults]" -> Seq(tr.adults.toString), 
       "search[params_attributes][children]" -> Seq(tr.childs.toString), 
       "search[params_attributes][infants]" -> Seq(tr.infants.toString), 
-      "search[params_attributes][trip_class]" -> Seq( if (tr.traveltype == Business ) "1" else "0"), 
+      "search[params_attributes][trip_class]" -> Seq( if (tr.traveltype == Business ) "1" else "0" ), 
       "search[params_attributes][direct]" -> Seq("0")
     )
     val signature:String = md5(s"${avsfetcher.AVSParser.token}:${avsfetcher.AVSParser.marker}:" +aParams.keys.toSeq.sorted.map(k=>aParams(k).mkString).mkString(":"))
@@ -132,75 +164,83 @@ class ExternalGetter extends Actor with Caching {
 	def receive = {
 
     case StartSearch(tr) => 
-      Logger.info(s"StartSearch ${tr}")
+      logger.info(s"StartSearch ${tr}")
       /*schedule = Akka.system.scheduler.schedule( 0.seconds, 1.second, self, Refresh )*/
 
-      val norvegianAirlinesFut = ask(norvegianAirlines,StartSearch(tr))(Timeout(5 seconds))
+      val norvegianAirlinesFut = ask(norvegianAirlines,StartSearch(tr))(Timeout(60 seconds))
       val avsFut = fetchAviasales(tr)
+      val norvegianAirlinesPromise = Promise[Boolean]()
+      val avsPromise = Promise[Boolean]()
 
       norvegianAirlinesFut onComplete {
         case Success(SearchResult(tr,tickets)) => 
-          Logger.info(s"Norvegian airlines returns: $tickets")
+          logger.info(s"Norvegian airlines returns: $tickets")
+          var t:Flight = null
+          implicit val flFormat = Json.format[Flight]
+          implicit val avsFormat = Json.format[Ticket]
+
+          broadcast(Json.obj("tickets" -> Json.toJson(tickets)))
+
+          norvegianAirlinesPromise.success(true)
         case Success(x) => 
-          Logger.error(s"Norvegian airlines returns bad answer: $x")
+          logger.error(s"Norvegian airlines returns bad answer: $x")
+          norvegianAirlinesPromise.success(false)
         case Failure(t) => 
-          Logger.error("An error has occured: " + t.getMessage)
+          logger.error("norvegianAirlinesFut: An error has occured: " + t.getMessage)
+          norvegianAirlinesPromise.success(false)
           //broadcast(Json.obj("error"->500))
           //channel.end()
       }
 
       avsFut onComplete {
-        case Success((tickets,gates,curencies,airlines)) => 
-          Logger.info(s"Aviasales returns: ${tickets.length} results")
+        case Success((tickets,curencies,airlines)) => 
+          logger.info(s"Aviasales returns: ${tickets.length} results")
 
           implicit val avsFormat = Json.format[AVSFlights]
           implicit val ticketFormat = Json.format[AVSTicket]
-          implicit val avgFormat = Json.format[AVSGate]
+          //implicit val avgFormat = Json.format[AVSGate]
           implicit val avaFormat = Json.format[AVSAirline]
           
-          broadcast(Json.obj("currency_rates" -> Json.toJson(curencies)))
-          broadcast(Json.obj("gates" -> Json.toJson(gates)))
-          broadcast(Json.obj("airlines" -> Json.toJson(airlines)))
           
+          broadcast(Json.obj("currency_rates" -> Json.toJson(curencies)))
+          // broadcast(Json.obj("gates" -> Json.toJson(gates)))
+          broadcast(Json.obj("airlines" -> Json.toJson(airlines)))
           broadcast(Json.obj("tickets" -> Json.toJson(tickets)))
-
-          channel.end()
+          
+          avsPromise.success(true)
         case Failure(t) => 
-          Logger.error("An error has occured: " + t.getMessage)
+          logger.error("An error has occured: " + t.getMessage)
+          norvegianAirlinesPromise.success(false)
           //broadcast(Json.obj("error"->500))
           //channel.end()
       }
 
-      val allFetchers = List(norvegianAirlinesFut,avsFut).map {
-        f => f.recover {
-          case e => SearchError(tr,e)
-        }
-      }
+      val allFetchers = List(norvegianAirlinesPromise.future,avsPromise.future)
 
       val allFetchersFut = Future.sequence(allFetchers)
 
       allFetchersFut onComplete {
         case Success(results:List[_]) => 
-          val failed = results.count(_.isInstanceOf[SearchError])
+          val failed = results.count(! _ )
           val total  = results.length
           if ( failed == total) {
-            Logger.error("allFetchers returend errror- errors")
+            logger.error("allFetchers returend errror- errors")
             broadcast(Json.obj("error"->500))
           } else if ( failed > 0 ) {
-            Logger.warn(s"$failed of $total fetchers failed")
+            logger.warn(s"$failed of $total fetchers failed")
           } else {
-            Logger.info("Fetching succesfully ended")  
+            logger.info("Fetching succesfully ended")  
           }
 
           channel.end()
         case Failure(ex) => 
-          Logger.error("allFetchers - error occured: " +ex.getMessage)
+          logger.error("allFetchers - error occured: " +ex.getMessage)
           broadcast(Json.obj("error"->500))
           channel.end()
       }
       /*
     case Refresh => 
-      Logger.info(s"PINGG")
+      logger.info(s"PINGG")
       idx+=1
       broadcast(s"aaa $idx\n")
       if ( idx == 10 ) {
@@ -214,7 +254,7 @@ class ExternalGetter extends Actor with Caching {
         Enumerator.enumerate(buffer.reverse)  >>> enumerator
       )
 
-    case unk => Logger.error(s"Unknown signal $unk")
+    case unk => logger.error(s"Unknown signal $unk")
 	}
 
   def broadcast(msg:JsValue) = {
@@ -243,6 +283,8 @@ class ManagerActor extends Actor {
 
       val fetcher = Akka.system.actorOf(Props[ExternalGetter],s"fetcher-${idx}")
 
+      Logger.info(s"Spawn search actor fetcherIdx:$idx for tr:$tr")
+
       if (start) fetcher ! StartSearch(tr)
 
       (idx,fetcher)
@@ -258,7 +300,9 @@ class ManagerActor extends Actor {
                 myFutureStuff ? Identify(1)).mapTo[ActorIdentity],
                 0.1 seconds)
               aid.ref match {
-                case Some(fetcher) => (fetcherIdx,fetcher)
+                case Some(fetcher) => 
+                  Logger.info(s"Use existing search actor fetcherIdx:$fetcherIdx for tr:$tr")
+                  (fetcherIdx,fetcher)
                 case None => newFetcher(tr)
               }
             case None => newFetcher(tr)
@@ -271,23 +315,25 @@ class ManagerActor extends Actor {
 
 object Manager {
 
-    lazy val managerActor = Akka.system.actorOf(Props[ManagerActor],"manager")
+  val logger = Logger("Manager")
 
-    val fastTimeout = 0.1 seconds
+  lazy val managerActor = Akka.system.actorOf(Props[ManagerActor],"manager")
+  lazy val gatesActor = Akka.system.actorOf(Props[actors.GatesStorageActor],"GatesStorageActor")
 
-    implicit val timeout = Timeout(fastTimeout)
-    
-    def startSearch(tr:model.TravelRequest) = {
-      
-      val (fetcherId,fetcher) = Await.result( (managerActor ? StartFetcher(tr)).mapTo[(Int,ActorRef)] , fastTimeout )
-      fetcherId
-    }
+  val fastTimeout = 0.1 seconds
 
-    def getTravelInfo(idx:Int) = {
-      Await.result( (managerActor ? GetTravelInfo(idx)).mapTo[Option[model.TravelRequest]] , fastTimeout )
-    }
+  implicit val timeout = Timeout(fastTimeout)
+  
+  def startSearch(tr:model.TravelRequest) = {    
+    val (fetcherId,fetcher) = Await.result( (managerActor ? StartFetcher(tr)).mapTo[(Int,ActorRef)] , fastTimeout )
+    fetcherId
+  }
 
-    def getCheapest(iataFrom:String):Future[Seq[model.FlightInfo]] =  
+  def getTravelInfo(idx:Int) = {
+    Await.result( (managerActor ? GetTravelInfo(idx)).mapTo[Option[model.TravelRequest]] , fastTimeout )
+  }
+
+  def getCheapest(iataFrom:String):Future[Seq[model.FlightInfo]] =  
       model.Airports.get(iataFrom) match {
         case Some(from) => 
           val f = avsfetcher.AvsCacheParser.fetchAviasalesCheapest(iataFrom)
@@ -306,7 +352,7 @@ object Manager {
                       )
                     }
                   case None     => 
-                    Logger.warn(s"getCheapest:iataTo $iataTo - no such airport")
+                    logger.warn(s"getCheapest:iataFrom:$iataFrom iataTo:$iataTo - no such airport")
                     Option.empty[model.FlightInfo]
                 }
             }.toSeq
@@ -315,10 +361,27 @@ object Manager {
           ret0
 
         case None => 
-          Logger.error(s"getCheapest $iataFrom - no such airport")
+          logger.error(s"getCheapest $iataFrom - no such airport")
           Future.successful(List.empty[model.FlightInfo])
       }
 
+  def getGates(gates:Seq[String]):Seq[model.Gate] = {
+    Await.result( (gatesActor ? gates ).mapTo[Seq[model.Gate]] , fastTimeout )
+  }
+/*
+  def updateGates(gates:Seq[JsObject]) = {
+    val gReads = (
+    (__ \ "id").read[String] and
+    (__ \ "currency").read[String] and
+    (__ \ "label").read[String]
+    )(model.Gate)
+
+    gatesActor ! gates.map { g => g.as[String](gReads) }
+  }
+  */
+  def updateGates(gates:Seq[model.Gate]) = {
+    gatesActor ! gates
+  }
 }
 
 

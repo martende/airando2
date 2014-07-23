@@ -160,6 +160,7 @@ with open('_airports.csv', 'rb') as csvfile:
 				'airports_count' : 0
 			}
 
+
 for i in jsond:
 	for m in (airports,cities):
 		if i['code'] in m:
@@ -325,7 +326,6 @@ with open('airports.csv', 'wb') as csvfile:
 		spamwriter.writerow([r[k] or u'' for k in keys])
 
 
-
 # Some Test
 
 without_country_code = [_ for _ in ret if not _['country_code']]
@@ -379,9 +379,9 @@ for d in ret:
 	d['lon'] = float(d['lon'])
 	d['lat'] = float(d['lat'])
 
+
 json.dump(ret,open("airports.json","w"))
 
-print ret[1677]
 #for i in jsond:
 #	if i['code'] in airports:
 #		print airports[i['code']]['name_en'],i['name_translations']['ru']
