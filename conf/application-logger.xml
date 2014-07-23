@@ -11,14 +11,15 @@
 
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
-      <pattern>%coloredLevel %logger{15} - %message%n%xException{5}</pattern>
+      <pattern>%d{HH:mm:ss.SSS} %coloredLevel %logger{15} - %message%n%xException{5} </pattern>
     </encoder>
   </appender>
-  
+  <!--[%caller{3,1}:%L]-->
   <logger name="play" level="INFO" />
-  <logger name="application" level="INFO" />
-  <logger name="NorvegianAirlines" level="INFO" />
-  
+  <logger name="application" level="DEBUG" />
+  <logger name="NorvegianAirlines" level="DEBUG" />
+  <logger name="ExternalGetter" level="DEBUG" />
+  <logger name="PhantomExecutor" level="DEBUG" />
   <root level="ERROR">
     <appender-ref ref="STDOUT" />
     <appender-ref ref="FILE" />

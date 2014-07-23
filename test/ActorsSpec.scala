@@ -28,6 +28,7 @@ import play.api.libs.iteratee.Iteratee
 import scala.concurrent.duration._
 
 import java.text.SimpleDateFormat
+import scala.util.{Try, Success, Failure}
 
 class AVSParserSpec extends FunSuite {
   import actors.avsfetcher._
@@ -96,6 +97,7 @@ class ManagerSpec(_system: ActorSystem) extends TestKit(_system)
   }
 
   "Manager Actor " must {
+
     "getCheapest(MSQ)" in {
       val r = actors.Manager.getCheapest("MSQ")
 
@@ -113,6 +115,20 @@ class ManagerSpec(_system: ActorSystem) extends TestKit(_system)
 
     }
   }
+
+  "Model " must {
+
+    "Airports.get(MSQ)" in {
+      val r = model.Airports.get("MSQ")
+      assert(!r.isEmpty)
+    }
+    
+    "Airports.get(BAK)" in {
+      val r = model.Airports.get("BAK")
+      assert(!r.isEmpty)
+    }
+  }
+
 
 }
 
@@ -135,17 +151,24 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
   }
 
   "NorvegianAirlinesSpec " must {
+    /*
     "t2" in {
       val t = new actors.PushResultsParser {
 
       }
-      val results = """{"results":{"iataFrom":"ORY","iataTo":"FLL","adults":1,"infants":0,"children":0,"tickets":[{"depdate":"2014-08-30T11:00","deptime":"11:00","direct_flights":[{"depdate":"2014-08-30T11:00","deptime":"11:00","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen","flnum":"DY1491","flclass":"lowfare"},{"depdate":"2014-08-30T16:10","deptime":"16:10","dstName":"oslo-gardermoen","avlName":"florida-fort lauderdale","iataFrom":"OSL","iataTo":"FLL","directions":"Oslo-Gardermoen - Florida-Fort Lauderdale","flnum":"DY7031","flclass":"lowfare"}],"flnum":"DY1491","flclass":"lowfare","price":"225.60","avldate":"2014-08-31T20:00","avltime":"20:00"},{"depdate":"2014-08-30T11:00","deptime":"11:00","direct_flights":[{"depdate":"2014-08-30T11:00","deptime":"11:00","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen","flnum":"DY1491","flclass":"flex"},{"depdate":"2014-08-30T16:10","deptime":"16:10","dstName":"oslo-gardermoen","avlName":"florida-fort lauderdale","iataFrom":"OSL","iataTo":"FLL","directions":"Oslo-Gardermoen - Florida-Fort Lauderdale","flnum":"DY7031","flclass":"flex"}],"flnum":"DY1491","flclass":"flex","price":"718.40","avldate":"2014-08-31T20:00","avltime":"20:00"},{"depdate":"2014-08-30T11:00","deptime":"11:00","direct_flights":[{"depdate":"2014-08-30T11:00","deptime":"11:00","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen","flnum":"DY1491","flclass":"lowfare"},{"depdate":"2014-08-30T16:10","deptime":"16:10","dstName":"oslo-gardermoen","avlName":"florida-fort lauderdale","iataFrom":"OSL","iataTo":"FLL","directions":"Oslo-Gardermoen - Florida-Fort Lauderdale","flnum":"DY7031","flclass":"premium"}],"flnum":"DY1491","flclass":"lowfare","price":"612.10","avldate":"2014-08-31T20:00","avltime":"20:00"},{"depdate":"2014-08-30T11:00","deptime":"11:00","direct_flights":[{"depdate":"2014-08-30T11:00","deptime":"11:00","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen","flnum":"DY1491","flclass":"flex"},{"depdate":"2014-08-30T16:10","deptime":"16:10","dstName":"oslo-gardermoen","avlName":"florida-fort lauderdale","iataFrom":"OSL","iataTo":"FLL","directions":"Oslo-Gardermoen - Florida-Fort Lauderdale","flnum":"DY7031","flclass":"premiumflex"}],"flnum":"DY1491","flclass":"flex","price":"782.80","avldate":"2014-08-31T20:00","avltime":"20:00"}]}}"""
+      val results = """{"results":{"iataFrom":"ORY","iataTo":"FLL","adults":1,"infants":0,"children":0,"tickets":[{"depdate":"2014-08-30T11:00","deptime":"11:00","direct_flights":[{"depdate":"2014-08-30T11:00","deptime":"11:00","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen",
+      "flnum":"DY1491","flclass":"lowfare"},{"depdate":"2014-08-30T16:10","deptime":"16:10",
+      "dstName":"oslo-gardermoen","avlName":"florida-fort lauderdale",
+      "iataFrom":"OSL","iataTo":"FLL",
+      "directions":"Oslo-Gardermoen - Florida-Fort Lauderdale",
+      "flnum":"DY7031","flclass":"lowfare"}],
+      "flnum":"DY1491","flclass":"lowfare","price":"225.60","avldate":"2014-08-31T20:00","avltime":"20:00"},{"depdate":"2014-08-30T11:00","deptime":"11:00","direct_flights":[{"depdate":"2014-08-30T11:00","deptime":"11:00","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen","flnum":"DY1491","flclass":"flex"},{"depdate":"2014-08-30T16:10","deptime":"16:10","dstName":"oslo-gardermoen","avlName":"florida-fort lauderdale","iataFrom":"OSL","iataTo":"FLL","directions":"Oslo-Gardermoen - Florida-Fort Lauderdale","flnum":"DY7031","flclass":"flex"}],"flnum":"DY1491","flclass":"flex","price":"718.40","avldate":"2014-08-31T20:00","avltime":"20:00"},{"depdate":"2014-08-30T11:00","deptime":"11:00","direct_flights":[{"depdate":"2014-08-30T11:00","deptime":"11:00","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen","flnum":"DY1491","flclass":"lowfare"},{"depdate":"2014-08-30T16:10","deptime":"16:10","dstName":"oslo-gardermoen","avlName":"florida-fort lauderdale","iataFrom":"OSL","iataTo":"FLL","directions":"Oslo-Gardermoen - Florida-Fort Lauderdale","flnum":"DY7031","flclass":"premium"}],"flnum":"DY1491","flclass":"lowfare","price":"612.10","avldate":"2014-08-31T20:00","avltime":"20:00"},{"depdate":"2014-08-30T11:00","deptime":"11:00","direct_flights":[{"depdate":"2014-08-30T11:00","deptime":"11:00","dstName":"paris-orly","avlName":"oslo-gardermoen","iataFrom":"ORY","iataTo":"OSL","directions":"Paris-Orly - Oslo-Gardermoen","flnum":"DY1491","flclass":"flex"},{"depdate":"2014-08-30T16:10","deptime":"16:10","dstName":"oslo-gardermoen","avlName":"florida-fort lauderdale","iataFrom":"OSL","iataTo":"FLL","directions":"Oslo-Gardermoen - Florida-Fort Lauderdale","flnum":"DY7031","flclass":"premiumflex"}],"flnum":"DY1491","flclass":"flex","price":"782.80","avldate":"2014-08-31T20:00","avltime":"20:00"}]}}"""
       var v = Json.parse(results) \ "results"
       val ret = t.processPushResults(v)
       assert(ret.iataFrom == "ORY")
       assert(ret.tickets.length == 4)
     }
-
+    
     "t1" in {
       val fetcher = system.actorOf(Props[actors.NorvegianAirlines])
 
@@ -159,7 +182,8 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
         }
       }
     }
-
+    */
+      /*
     "t3" in {
       val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
@@ -167,16 +191,71 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
 
       within (1 minute) {
         fetcher ! actors.StartSearch(model.TravelRequest("ORY","FLL",model.TravelType.OneWay,
-          df.parse("2014-08-30"),df.parse("2014-08-30"),1,1,0,model.FlightClass.Economy))
+          df.parse("2015-03-07"),df.parse("2015-03-07"),1,1,0,model.FlightClass.Economy))
 
         expectMsgPF() {
+          case actors.SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
+            Vector(
+              model.Flight("ORY","CPH","NR",_,"DY3635",_,None,None,0)
+            ),
+            None,prices,order_urls))) => 
+            println("Result" , tkts)
+            assert(prices == Map("NR"->307.9f))
+            assert(order_urls == Map("NR" -> "NR:201503071105ORY:201503071515CPH:201503072020FLL"))
           case actors.SearchResult(tr,tkts) => 
-            println(tkts(0),tkts(0).sign)
+            println("Result2" , tkts)
+            //assert(tkts == List(
+            //  Ticket(",
+            //    Vector(Flight("ORY","CPH","NR",0,"DY3635",Sat Mar 07 11:05:00 CET 2015,None,None,0), Flight(CPH,FLL,NR,0,DY7041,Sat Mar 07 15:15:00 CET 2015,None,None,0)),None,Map(NR -> 307.9),Map(NR -> NR:201503071105ORY:201503071515CPH:201503072020FLL)))) )
         }
       }
     }
+*/
+    "t3 supervisor" in {
+      val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
+      val fetcher = actors.ExternalGetter.norvegianAirlines
 
+      within (1 minute) {
+        fetcher ! actors.StartSearch(model.TravelRequest("ORY","FLL",model.TravelType.OneWay,
+          df.parse("2015-03-07"),df.parse("2015-03-07"),1,1,0,model.FlightClass.Economy))
+
+        expectMsgPF() {
+          case actors.SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
+            Vector(
+              model.Flight("ORY","CPH","NR",_,"DY3635",_,None,None,0)
+            ),
+            None,prices,order_urls))) => 
+            println("Result" , tkts)
+            assert(prices == Map("NR"->307.9f))
+            assert(order_urls == Map("NR" -> "NR:201503071105ORY:201503071515CPH:201503072020FLL"))
+          case actors.SearchResult(tr,tkts) => 
+            println("Result2" , tkts)
+            //assert(tkts == List(
+            //  Ticket(",
+            //    Vector(Flight("ORY","CPH","NR",0,"DY3635",Sat Mar 07 11:05:00 CET 2015,None,None,0), Flight(CPH,FLL,NR,0,DY7041,Sat Mar 07 15:15:00 CET 2015,None,None,0)),None,Map(NR -> 307.9),Map(NR -> NR:201503071105ORY:201503071515CPH:201503072020FLL)))) )
+        }
+
+        
+      }
+    }
+/*
+    "CGN -> HEL - no flights" in {
+      val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+      val fetcher = system.actorOf(Props[actors.NorvegianAirlines])
+
+      within (1 minute) {
+        fetcher ! actors.StartSearch(model.TravelRequest("CGN","HEL",model.TravelType.OneWay,
+          df.parse("2014-08-02"),df.parse("2014-08-03"),1,1,0,model.FlightClass.Economy))
+
+        expectMsgPF() {
+          case actors.SearchResult(tr,tkts) => 
+            assert(tkts.length == 0)
+        }
+      } 
+    }
+*/
   }
 
 }
@@ -186,7 +265,6 @@ class BaseFetcherActorSpec (_system: ActorSystem) extends TestKit(_system)
   with BeforeAndAfterAll
 {
   import BaseFetcherActorSpec._
-
   implicit override def patienceConfig =
     PatienceConfig(timeout = Span(1, Seconds), interval = Span(50, Millis))
   def this() = this(ActorSystem("testActorSystem", ConfigFactory.load()))
@@ -371,5 +449,9 @@ class FetcherActorSpec(_system: ActorSystem) extends TestKit(_system) with Impli
     
    }
 }
+
+
+
+
 
 

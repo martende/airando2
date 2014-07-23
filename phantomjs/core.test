@@ -1,0 +1,3 @@
+OPEN http://www.yahoo.com/
+OPEN http://www.yahoo.com/
+console.log(123);

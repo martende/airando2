@@ -19,6 +19,12 @@ object FlightClass extends Enumeration {
   val Economy, Business = Value
 }
 
+case class Gate(
+  id:String ,
+  currency: String,
+  label:String
+)
+
 case class Flight(
   iataFrom: String,
   iataTo: String,
@@ -49,7 +55,9 @@ case class TravelRequest(
   val childs:Int,
   val infants:Int,
   val flclass:FlightClass.FlightClass
-)
+) {
+  override def toString = s"Tr($iataFrom->$iataTo)"
+}
 
 case class GeoPoint(lon:Float,lat:Float) {
   def distance(t:GeoPoint) = {

@@ -36,15 +36,17 @@ define([
         }
 
         if ( response.ok ) {
+          console.log(response.data);
           self.trigger("tick");
           if ( response.data.airlines ) 
             self.updateAirlines(response.data.airlines);
-          if ( response.data.tickets ) 
-            self.updateTimetable(response.data.tickets);
           if ( response.data.gates ) 
             self.updateGatesInfo(response.data.gates);
           if ( response.data.currency_rates ) 
             self.indexModel.updateCurrenciesInfo(response.data.currency_rates);
+          // should be last
+          if ( response.data.tickets ) 
+            self.updateTimetable(response.data.tickets);
 
         } else {
           self.trigger("error",response.error);
