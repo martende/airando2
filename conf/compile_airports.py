@@ -92,6 +92,18 @@ for c in ('de','ru','en'):
 		for i in r:
 			iso_codes[c][i[0]]=" ".join(i[1:])
 
+timezones = {}
+with open('_timezones.txt') as csvfile:
+	r = UnicodeReader(csvfile, delimiter='\t', quotechar='"',skipinitialspace=True)
+	r.next()
+	for i in r:
+		if i[2] and i[4]:
+			tt = i[4]
+			dtt = int(tt[1:3])*60 + int(tt[4:6])
+			if tt[0] == '-':
+				dtt = -dtt
+			timezones[i[2]] = str(dtt)
+
 with open('_airports_fiko_ru.txt') as csvfile:
 	r = UnicodeReader(csvfile, delimiter='\t', quotechar='"',skipinitialspace=True)
 	r.next()
@@ -267,6 +279,14 @@ for m in (airports,cities):
 		if d['country_code'] in iso_codes['en'] and not d['country_name_en']:
 			d['country_name_en'] = iso_codes['en'][d['country_code']]
 
+for m in (airports,cities):
+	for iata in m:
+		d = m[iata]
+		if d['timezone']:
+			if d['timezone'] in timezones:
+				d['timezone'] = timezones[d['timezone']]
+			else:
+				d['timezone'] = None
 ret = []
 
 for m in (airports,cities):
@@ -360,6 +380,11 @@ print "Vals without city_iata: %d" % len(x)
 if len(x): 
 	print "For example %s" % x[0]
 
+x = [_ for _ in ret if not _['timezone'] ]
+print "Vals without timezone: %d" % len(x)
+if len(x): 
+	print "For example %s" % x[0]
+
 
 for d in ret:
 	if d['otype']=='airport':
@@ -378,7 +403,12 @@ for d in ret:
 for d in ret:
 	d['lon'] = float(d['lon'])
 	d['lat'] = float(d['lat'])
+	if d['timezone']:
+		d['timezone'] = int(d['timezone'])
+	else:
+		d['timezone'] = 0
 
+print [r for r in ret if r['iata'] == "HEL"]
 
 json.dump(ret,open("airports.json","w"))
 

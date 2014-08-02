@@ -17,9 +17,14 @@
   <!--[%caller{3,1}:%L]-->
   <logger name="play" level="INFO" />
   <logger name="application" level="DEBUG" />
-  <logger name="NorvegianAirlines" level="DEBUG" />
   <logger name="ExternalGetter" level="DEBUG" />
   <logger name="PhantomExecutor" level="DEBUG" />
+  <logger name="AvsCacheParser" level="DEBUG" />
+  
+  <logger name="NorvegianAirlines" level="DEBUG" />
+  <logger name="Airberlin" level="DEBUG" />
+  <logger name="Aviasales" level="DEBUG" />
+
   <root level="ERROR">
     <appender-ref ref="STDOUT" />
     <appender-ref ref="FILE" />
