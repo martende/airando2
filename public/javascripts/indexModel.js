@@ -79,14 +79,13 @@ define([
       return val;
     },
 
-    getDayOfWeek: function(unix_timestamp) {
-      var d = new Date(unix_timestamp*1000);
+    getDayOfWeek: function(d) {
+      if ( ! d ) return "";
       return $.fn.datepicker.dates[this.get('lang')]['days'][d.getDay()];
     },
 
-    humanizeDate: function(unix_timestamp) {
-      var d = new Date(unix_timestamp*1000);
-      
+    humanizeDate: function(d) {
+      if ( ! d ) return "";
       return $.fn.datepicker.DPGlobal.formatDate(
         d,
         $.fn.datepicker.dates[this.get('lang')]['format'],
@@ -94,12 +93,15 @@ define([
       );
     },
 
-    getTimeHtml: function(unix_timestamp) {
+
+    getTimeHtml: function(date) {
+      if ( ! date ) return "";
       var lang = this.get('lang');
-      var date = new Date(unix_timestamp*1000);
+      //var hours = date.getUTCHours();
+      //var minutes = date.getUTCMinutes();
       var hours = date.getHours();
       var minutes = date.getMinutes();
-      
+
       if ( minutes < 10) minutes = "0"+minutes;
 
       if ( lang == 'ru' || lang == 'de') {
@@ -121,7 +123,8 @@ define([
 
     humanizeDuration: function(d) {
       var lang = window.initData.lang;
-      var h = Math.floor(d / 3600);
+      // d = d / 1000 ;
+      var h = Math.floor(d /  3600  );
       var m = Math.round((d - h *3600) / 60);
       var o = "";
       var h10 = h % 10;

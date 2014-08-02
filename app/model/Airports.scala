@@ -31,8 +31,8 @@ case class Flight(
   airline: String,
   duration: Int,
   flnum: String,
-  depdate: java.util.Date,
-  avldate: Option[java.util.Date],  
+  departure: java.util.Date,
+  arrival: Option[java.util.Date],  
   aircraft: Option[String],
   delay: Int
 )
@@ -43,7 +43,58 @@ case class Ticket(
   return_flights: Option[Seq[Flight]],
   native_prices: Map[String,Float],
   order_urls: Map[String,String]
-)
+) {
+  val dformatter = new java.text.SimpleDateFormat("yyyyMMddHHmm");
+  lazy val tuid = {
+    val parts = direct_flights.map {
+      f => dformatter.format(f.departure) + f.iataFrom + "-" + f.airline
+    } :+ (dformatter.format(direct_flights.last.arrival.get) + direct_flights.last.iataTo )
+    parts.mkString(":")
+  }
+}
+
+object Formatters {
+  // Json Formatters 
+  import play.api.libs.json._
+  import play.api.libs.functional.syntax._
+  /*
+  implicit val flFormat:Writes[Flight] = new Writes[Flight] {
+    def writes(v: Flight) = Json.obj(
+      "iataFrom" -> v.iataFrom,
+      "iataTo" -> v.iataTo,
+      "airline" -> v.airline,
+      "duration" -> v.duration,
+      "flnum" -> v.flnum,
+      "departure" -> v.departure,
+      "arrival" -> v.arrival,
+      "aircraft" -> v.aircraft,
+      "delay" -> v.delay
+    )
+  }
+  
+
+
+  */
+  implicit val dateFormat = new Writes[java.util.Date] {
+    def writes(v:java.util.Date) = { 
+        val df = new java.text.SimpleDateFormat("yyyyMMddHHmm");
+        JsString(df.format(v))
+    }
+  }
+  implicit val flFormat   = Json.format[Flight]
+  
+  implicit val tcktFormat:Writes[Ticket] = new Writes[Ticket] {
+    def writes(v: Ticket) = Json.obj(
+      "tuid" ->  v.tuid,
+      "sign" ->  v.sign,
+      "direct_flights" ->  v.direct_flights,
+      "return_flights" ->  v.return_flights,
+      "native_prices" ->  v.native_prices,
+      "order_urls" ->  v.order_urls
+    )
+  }
+
+}
 
 case class TravelRequest(
   val iataFrom:String,
@@ -96,7 +147,7 @@ trait POI {
 
   val location:GeoPoint
 
-  val time_zone:String
+  val time_zone:Int
 	def distance(t:GeoPoint) = location.distance(t)
 
   def name(implicit l:Lang) = l.code match {
@@ -116,7 +167,7 @@ trait POI {
 
 case class Airport(iata:String,
   location:GeoPoint,
-  time_zone:String,
+  time_zone:Int,
   city_iata:String,
   country_code:String,
 
@@ -160,7 +211,7 @@ case class Airport(iata:String,
 
 case class CityPOI(iata:String,
   location:GeoPoint,
-  time_zone:String,
+  time_zone:Int,
   country_code:String,
 
   name_en:String,
@@ -195,7 +246,7 @@ object Airports {
 	
 	def mkDbRecord(iata:String,otype:String,
     location:GeoPoint,
-    time_zone:Option[String],
+    time_zone:Int,
     city_iata:Option[String],
     country_code:String,
 
@@ -216,8 +267,8 @@ object Airports {
     // println(s"IATA:$iata $time_zone -EMPTY TIM")
     //} 
     otype match {
-      case "airport" => Airport(iata,location,time_zone.getOrElse(""),city_iata.getOrElse(iata),country_code,airport_en.get,airport_de.get,airport_ru.get,city_en,city_de,city_ru,country_en,country_de,country_ru)  
-      case "city" => CityPOI(iata,location,time_zone.getOrElse(""),country_code,city_en,city_de,city_ru,country_en,country_de,country_ru)
+      case "airport" => Airport(iata,location,time_zone,city_iata.getOrElse(iata),country_code,airport_en.get,airport_de.get,airport_ru.get,city_en,city_de,city_ru,country_en,country_de,country_ru)  
+      case "city" => CityPOI(iata,location,time_zone,country_code,city_en,city_de,city_ru,country_en,country_de,country_ru)
     }
   }
 
@@ -227,7 +278,7 @@ object Airports {
     (__ \ "iata").read[String] and
     (__ \ "otype" ).read[String] and
     (__ ).read[GeoPoint] and
-    (__ \ "time_zone").readNullable[String]  and
+    (__ \ "timezone").read[Int]  and
     (__ \ "city_iata" ).readNullable[String] and
 
     (__ \ "country_code" ).read[String] and
@@ -282,7 +333,10 @@ object Airports {
     */
   }
 
-  def get(iata:String) = data.find(_.iata==iata)
+  def get(iata:String) = data.find(_.iata==iata) orElse data.find { 
+    case ap:Airport => ap.city_iata==iata
+    case _ => false 
+  }
 
   def exists(iata:String):Boolean = ! get(iata).isEmpty
 	/*
@@ -293,4 +347,25 @@ object Airports {
     //get("MSQ")
   }
 	*/
+}
+
+
+object Avialines {
+
+  lazy val name2iata = {
+    val citiesFile = "conf/airlines.csv"
+
+    Logger.info(s"Load avialines info from $citiesFile")
+
+    val lines = scala.io.Source.fromFile(citiesFile).getLines()
+    lines.map { x => 
+      //println(x.trim.split(";").toList)
+      val Array(iata,name) = x.trim.split(";")
+      name.replaceAll(" ","").replaceAll("-","").toLowerCase -> iata.toUpperCase
+      
+    }.toMap
+  }
+
+  def getByName(name:String) = name2iata.get(name.toLowerCase.replaceAll(" ","").replaceAll("-",""))
+
 }

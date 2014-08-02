@@ -2,15 +2,15 @@ define([
   'jquery',
   'underscore',
   'backbone',
-  'moment',
-  'i18n',
-  'slick'
-], function($, _, Backbone,moment,__){
+  // 'moment',
+  'i18n'
+  // 'slick'
+], function($, _, Backbone,__){
 
   var templateDirectFl;
   var templateReturnFl;
 
-  var flightsView = Backbone.View.extend({
+  var flightView = Backbone.View.extend({
     tagName: 'a',
     initialize: function(ops) {
       this.flightsModel = ops.flightsModel;
@@ -36,7 +36,7 @@ define([
 
       var trfr;
 
-      trfr = this.renderMainFlight(df,rf);
+      trfr = this.renderMainFlight(df,rf,this.model.get("tuid"));
       
       this.$el.append(trfr);
 
@@ -60,7 +60,11 @@ define([
       $container.append(this.$el);
       this.bindClickEvent();
     },
-
+    prependTo: function ($container,$lastEl) {
+      if ( $lastEl ) this.$el.insertAfter($lastEl);
+      else $container.prepend(this.$el);
+      this.bindClickEvent();
+    },
     bindClickEvent: function() {
       $(".flrow",this.$el).unbind("click").click(function(e,a) {
         var $t   = $(e.target);
@@ -76,7 +80,7 @@ define([
       });
     },
 
-    renderMainFlight: function(df,rf) {
+    renderMainFlight: function(df,rf,tuid) {
       var im = this.flightsModel.indexModel;
       var el = $("<div/>");
       var avsa = this.model.getAirlines();
@@ -114,7 +118,7 @@ define([
         'flc':flc,
         'stopsHtml' : this.createStopsHtml(flc,infoText,innerInfo,1),
         'avlines':avsa,
-        'ft':im.getTimeHtml(f.departure),
+        'ft':im.getTimeHtml(f.departure) ,
         'tt':im.getTimeHtml(l.arrival),
         'fiata': f.origin,
         'tiata': l.destination,
@@ -126,7 +130,8 @@ define([
         'directDepDate':im.humanizeDate(f.departure),
         'directAvlDate':im.humanizeDate(l.arrival),
         'bestGate' : bestGate,
-        'gates'    : gatesHtml
+        'gates'    : gatesHtml,
+        'tuid'     : tuid
       };
       var tmpl = this.templateDirectFl;
       if (rf) {
@@ -334,5 +339,5 @@ define([
 
   });
 
-  return flightsView;
+  return flightView;
 });

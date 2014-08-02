@@ -293,9 +293,21 @@ object PhantomExecutor {
 
     def render(fname:String) = evaljs[Boolean](s"page.render('$fname');true;",2 seconds)
 
-    def selectJSSelect(value:String,button:Selector,_targetEl: => Selector  ) {
+    def selectJSSelect(value:String,button:Selector,_targetEl: => Selector  , waitOpening:Boolean = false) {
       button.click()
-      val targetEl = _targetEl
+      def invalidate(el : => Selector,cnt:Int,sleep:Duration):Selector = {
+        try {
+          val ret = el
+          ret
+        } catch {
+          case x:Throwable => if (cnt == 0) throw x else {
+            Thread.sleep(sleep.toMillis)
+            invalidate(el,cnt-1,sleep)
+          }
+        }
+      }
+      val targetEl = if( waitOpening ) invalidate(_targetEl,4,500 milliseconds) else _targetEl
+
       val ob = targetEl.offsetParent.getBoundingClientRect()
       val tb = targetEl.getBoundingClientRect()
       if ( tb.top >= ob.top &&  tb.bottom <= ob.bottom ) {
@@ -551,7 +563,9 @@ object PhantomExecutor {
 
     def className:String = singleValJs[String]("d[0].className")
 
-    def click() = Await.result( ( 
+    def click() = 
+      try 
+        Await.result( ( 
         _fetcher ? Eval(
           """var rect = """ + evfun("""R=null;
             if ( d.length == 0 ) {
@@ -580,7 +594,11 @@ object PhantomExecutor {
 
         )).mapTo[EvalResult].map {
             case EvalResult(hui) => Json.parse(hui.get).as[Boolean]
+            //case EvalResult(Failure(e))   => throw new AutomationException(s"click $selector failed: $e" )
         } , fastTimeout)
+      catch {
+        case e:Throwable => throw new AutomationException(s"click $selector failed: $e" )
+      }
 
     def hightlight() = Await.result( ( 
         _fetcher ? Eval(
@@ -723,11 +741,11 @@ object PhantomExecutor {
     //def newBuilder = ListedSelector
   }
 
-  var openIdx = 1
+  //var openIdx = 1
 
   def open(url:String,isDebug:Boolean=true):Future[Try[Page]] = {
-    val fetcher = Akka.system.actorOf(props(isDebug=isDebug),s"phantom-$openIdx")
-    openIdx+=1
+    val fetcher = Akka.system.actorOf(props(isDebug=isDebug))
+    //openIdx+=1
 
     (fetcher ? Start()).flatMap {
       case Started() => 

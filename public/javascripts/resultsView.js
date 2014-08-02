@@ -4,9 +4,8 @@ define([
   'backbone',
   'searchFormView',
   'flightsView',
-  'filterView',
-  'filterModel'
-], function($, _, Backbone,SearchFormView,FlightsView,FilterView,FilterModel){
+  'filterView'
+], function($, _, Backbone,SearchFormView,FlightsView,FilterView){
   
   var resultsView = SearchFormView.extend({
     bindfields: ['adults','childs','infants','flclass'],
@@ -15,7 +14,7 @@ define([
 
       this.$menuCtrls = $(".bottom i");
 
-      this.filterModel = new FilterModel();
+      this.filterModel = ops.flightsModel.filterModel; // new FilterModel();
 
       this.flightsView = new FlightsView({
         el:$("#flightsList"),

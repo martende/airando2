@@ -1,17 +1,20 @@
 define([
   'underscore',
   'backbone',
-  'flightModel'
-], function( _, Backbone,FlightModel){
+  'flightModel',
+  'filterModel'
+], function( _, Backbone,FlightModel,FilterModel){
   var flightsModel = Backbone.Collection.extend({
     model: FlightModel,
 
     initialize: function(models, ops) {
       this.idx = ops.idx;
       this.indexModel = ops.indexModel;
+      this.filterModel = new FilterModel();
       this.gates = {};
       this.airlines = {};
-
+      this.ticketByTuid = {};
+      this.comparator = this.filterModel.getComparator();
       this.markDirty();
     },
 
@@ -56,18 +59,62 @@ define([
       $(document.body).append(iframe);
 
     },
+    str2Date: function(strd) {
+      r = strd.match(/^(\d\d\d\d)(\d\d)(\d\d)(\d\d)(\d\d)$/);
+      if ( r ) return  new Date(r[1],r[2]-1,r[3],r[4],r[5]);
+      throw "InvalidDate";
+    },
     updateTimetable: function(data) {
+      for ( var i = 0 ; i < data.length ; i++) {
+        var df = data[i]['direct_flights'];
+        if ( df ) {
+          for ( var j = 0 ; j < df.length ; j++ ) {
+            if ( df[j].arrival ) df[j].arrival = this.str2Date(df[j].arrival);
+            if ( df[j].departure ) df[j].departure = this.str2Date(df[j].departure);
+          }
+        }
+        df = data[i]['return_flights'];
+        if ( df ) {
+          for ( var j = 0 ; j < df.length ; j++ ) {
+            if ( df[j].arrival ) df[j].arrival = this.str2Date(df[j].arrival);
+            if ( df[j].departure ) df[j].departure = this.str2Date(df[j].departure);
+          }
+        }
+      }
+      /*
+      var cmp = this.comparator;
       data.sort(function(x,y) {
-        if (x.total > y.total) return 1 ;
-        if (x.total < y.total) return -1 ;
+        var vx = cmp(x);
+        var vy = cmp(y);
+        if (vx > vy) return 1 ;
+        if (vx < vy) return -1 ;
         return 0;
       });
+      */
       for ( var i = 0 ; i < data.length ; i++) {
-        this.add(data[i]);
+        var om = this.ticketByTuid[data[i].tuid];
+        if (  om ) {
+          this.combineData(om,data[i]);
+          //this.add(data[i]);  
+        } else {
+          var nm = this.add(data[i]);  
+          this.ticketByTuid[data[i].tuid] = nm;
+        }
+        
       }
       this.markDirty();
       this.trigger("timetable");
 
+    },
+    combineData: function(om,d) {
+      var onp = om.get('native_prices');
+      var onu = om.get('order_urls');
+      _.extend(onp,d.native_prices);
+      _.extend(onu,d.order_urls);
+      this.remove(om);
+      om.reset();
+      this.add(om);
+      
     },
     updateAirlines: function(g) {
       this.markDirty();

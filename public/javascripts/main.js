@@ -34,9 +34,9 @@ require.config({
     }
 });
 
-require(["router","moment"],function(Router,moment) {
+require(["router"/*,"moment"*/],function(Router/*,moment*/) {
     console.log("main.js", $.ui);
 
-    moment.lang(window.initData.lang);
+    // moment.lang(window.initData.lang);
 	Router.initialize();
 });
