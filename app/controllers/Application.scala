@@ -38,7 +38,7 @@ object Application extends Controller with CookieLang with Track {
   def index = Action.async {
   	implicit request =>
 
-    val ipaddr = if ( request.remoteAddress == "127.0.0.1" ) request.headers.get("X-Real-IP") else request.remoteAddress
+    val ipaddr:String = request.headers.get("X-Real-IP").getOrElse(request.remoteAddress)
 
     var ipInfo:utils.IpLocation = ipGeo.getLocation(ipaddr).getOrElse(utils.IpLocation.empty)
     
