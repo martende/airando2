@@ -26,6 +26,8 @@ import model.FlightClass._
 // implicit for Akka ExecutionContext.Implicits.global
 import play.api.libs.concurrent.Execution.Implicits._
 
+import org.joda.time.DateTime
+
 object Application extends Controller with CookieLang with Track {
 
 	val ipGeo = {
@@ -177,8 +179,8 @@ object Application extends Controller with CookieLang with Track {
         "HEL",
         "BER",
         TravelType.OneWay,
-        new java.util.Date(114,7,12),
-        new java.util.Date(114,7,18),
+        DateTime.now().plusDays(3).toDate(),
+        DateTime.now().plusDays(10).toDate(),
         1,0,0,FlightClass.Economy
         ),
         Airports.get("HEL").get,
@@ -198,7 +200,7 @@ object Application extends Controller with CookieLang with Track {
 
   def redirect(id:String) = Action.async {
     if ( id.substring(0,4) == "avs:") {
-      import actors.avsfetcher.AvsCacheParser
+      import actors.AvsCacheParser
       AvsCacheParser.fetchRedirUrl(id.substring(4)).map {
         url => Results.Found(url)
       }

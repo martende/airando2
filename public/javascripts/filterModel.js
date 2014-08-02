@@ -102,8 +102,38 @@ define([
       var r = this.get('stopDuration');
       var v = item.getTotalPause();
       return ! r || (  r[0] <= v && r[1] >= v )
-    }
+    },
 
+    getComparator: function() {
+      var srtField = this.get("srtField") || 'price-col';
+      var srt = this.get("srt") || 'asc';
+      var sign = srt == "desc" ? -1 : 1;
+      var comparator;
+      if ( srtField == "departure") {
+        comparator = function(m) {
+          return sign * m.get("direct_flights")[0].departure;
+        };
+      } else if ( srtField == "arrival") {
+        comparator = function(m) {
+          var df = m.get("direct_flights");
+          return sign * df[df.length-1].arrival;
+        };
+      } else if ( srtField == "duration") {
+        comparator = function(m) {
+          return sign * m.getAvgDuration();
+        };
+      } else if ( srtField == "stops-col") {
+        comparator = function(m) {
+          return sign * m.getStopsCnt();
+        };
+      } else {
+        // price-col
+        comparator = function(m) {
+          return sign * m.getFullPrice();
+        }; 
+      }
+      return comparator;        
+    }   
   });
 
   return m;

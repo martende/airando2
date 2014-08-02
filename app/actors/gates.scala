@@ -37,7 +37,8 @@ import model.Gate
 class GatesStorageActor extends Actor {
 
     var gatesMap:Map[String,Gate] = Map(
-      "NR"->Gate("NR","eur","NorvegianAirlines")
+      "DY"->Gate("DY","eur","NorvegianAirlines"),
+      "AB"->Gate("AB","eur","Airberlin")
     )
     def receive = {
         case gateIds:Seq[Any] => 
@@ -53,7 +54,7 @@ class GatesStorageActor extends Actor {
 
 
 
-class CurrenciecStorageActor extends Actor {
+class CurrenciesStorageActor extends Actor {
 
     var curMap:Map[String,Float] = Map()
     def receive = {

@@ -7,14 +7,14 @@ define([
     },
 
     getDepTime: function() {
-      var date = new Date(this.get("direct_flights")[0].departure*1000);
+      var date = this.get("direct_flights")[0].departure;
       var hours = date.getHours();
       var minutes = date.getMinutes();
       return hours*3600 + minutes * 60;
     },
     getArvlTime: function() {
       var df = this.get("direct_flights");
-      var date = new Date(df[df.length-1].arrival*1000);
+      var date = df[df.length-1].arrival;
       var hours = date.getHours();
       var minutes = date.getMinutes();
       return hours*3600 + minutes * 60;
@@ -57,10 +57,21 @@ define([
 
       var duration = 0;
       var f = this.get("direct_flights");
+      var badDuration = false;
       for ( var i = 0 ; i < f.length ; i++ ) {
+        if ( f[i].duration )
         duration+=f[i].duration + f[i].delay;
+        else {
+          badDuration = true;break;
+        }
       }
-      duration*=60;
+
+      if ( badDuration ) {
+        duration = (f[f.length-1].arrival.getTime() - f[0].departure.getTime() )/1000 + (f[0].fromTZ  - f[f.length-1].toTZ ) * 60; 
+      } else {
+        duration*=60;    
+      }
+      
       this._directdur=duration;
       return duration;
     },
@@ -236,6 +247,16 @@ define([
 
       this._aliances = avsa;
       return this._aliances;      
+    },
+
+    reset: function() {
+      this._aliances = null;
+      this._airlines = null;
+      this._stopairprts = null;
+      this._returndur = null;
+      this._directdur = null;
+      this._avgdur = null;
+      this._total = null;
     }
 
   });

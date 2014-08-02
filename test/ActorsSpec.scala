@@ -30,52 +30,6 @@ import scala.concurrent.duration._
 import java.text.SimpleDateFormat
 import scala.util.{Try, Success, Failure}
 
-class AVSParserSpec extends FunSuite {
-  import actors.avsfetcher._
-  test("testdata/CGN-BER-20140812-aviasales.json") {
-    val d = scala.io.Source.fromFile("testdata/CGN-BER-20140812-aviasales.json").mkString
-    val (data,gates,curencies,avialines) = AVSParser.parse(d)
-    val airberiln = data.filter { x => 
-      x.direct_flights(0).airline == "AB"
-    }
-
-    
-    val m:Seq[Pair[Float,AVSTicket]] = airberiln.map {
-      x => ( x.native_prices.getOrElse("203",100000.0f) -> x )
-    }
-
-    val ab = m.min(Ordering.by({
-      x:Pair[Float,AVSTicket] => x._1
-    }))._2
-
-    assert(Math.floor(ab.native_prices("203")) == 65.0 )
-    assert(Math.floor(ab.native_prices("62")) == 50.0 )
-
-    assert(ab.order_urls("20")=="avs:e6379cc6-2674-47c0-bd43-61ce4bcd8dd4:20300053")
-  }
-
-}
-
-class AVSParserSpecLive extends FunSuite with ScalaFutures {
-  implicit override def patienceConfig =
-  PatienceConfig(timeout = Span(1, Seconds), interval = Span(50, Millis))
-
-  import actors.avsfetcher._
-  test("MSQ airport") {
-    import scala.concurrent._
-
-    val r = new AvsCacheParser() {
-      override lazy val cacheDir="./cache/"
-    }.fetchAviasalesCheapest("MSQ")
-
-    whenReady(r) { 
-      r => assert(r.length > 10)
-        
-    }
-
-  }
-
-}
 
 
 class ManagerSpec(_system: ActorSystem) extends TestKit(_system) 
@@ -127,8 +81,67 @@ class ManagerSpec(_system: ActorSystem) extends TestKit(_system)
       val r = model.Airports.get("BAK")
       assert(!r.isEmpty)
     }
+
+    "Avialines.getByName(Pegasus Airlines) == PC" in {
+      val r = model.Avialines.getByName("pegasusairlines")
+      assert(r == Some("PC"))
+    }
+
   }
 
+
+}
+
+
+
+class AirberlinSpec (_system: ActorSystem) extends TestKit(_system) 
+  with ImplicitSender with WordSpecLike with ScalaFutures 
+  with BeforeAndAfterAll
+{
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(60, Seconds), interval = Span(500, Millis))
+  def this() = this(ActorSystem("testActorSystem", ConfigFactory.load()))
+  implicit val app: FakeApplication = FakeApplication()
+  // Execution context statt import ExecutionContext.Implicits.global
+  implicit val ec = _system.dispatcher
+
+  override def beforeAll {
+    Play.start(app)
+  }
+  override def afterAll {
+    TestKit.shutdownActorSystem(system)
+  }
+
+  "AirberlinSpec " must {
+    "HEL -> OSL" in {
+      val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+      val fetcher = actors.ExternalGetter.airberlin
+
+      within (1 minute) {
+        fetcher ! actors.StartSearch(model.TravelRequest("HEL","OSL",model.TravelType.OneWay,
+          df.parse("2014-10-21"),df.parse("2014-10-21"),3,2,1,model.FlightClass.Economy))
+
+        expectMsgPF() {
+          case actors.SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
+            Vector(
+              model.Flight("ORY","CPH","NR",_,"DY3635",_,None,None,0)
+            ),
+            None,prices,order_urls))) => 
+            println("Result" , tkts)
+            assert(prices == Map("NR"->307.9f))
+            assert(order_urls == Map("NR" -> "NR:201503071105ORY:201503071515CPH:201503072020FLL"))
+          case actors.SearchResult(tr,tkts) => 
+            println("Result2" , tkts)
+            //assert(tkts == List(
+            //  Ticket(",
+            //    Vector(Flight("ORY","CPH","NR",0,"DY3635",Sat Mar 07 11:05:00 CET 2015,None,None,0), Flight(CPH,FLL,NR,0,DY7041,Sat Mar 07 15:15:00 CET 2015,None,None,0)),None,Map(NR -> 307.9),Map(NR -> NR:201503071105ORY:201503071515CPH:201503072020FLL)))) )
+        }
+
+        
+      }
+    }    
+  }
 
 }
 
@@ -211,7 +224,8 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
       }
     }
 */
-    "t3 supervisor" in {
+    /*
+    "ORY -> FLL" in {
       val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
 
       val fetcher = actors.ExternalGetter.norvegianAirlines
@@ -219,6 +233,36 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
       within (1 minute) {
         fetcher ! actors.StartSearch(model.TravelRequest("ORY","FLL",model.TravelType.OneWay,
           df.parse("2015-03-07"),df.parse("2015-03-07"),1,1,0,model.FlightClass.Economy))
+
+        expectMsgPF() {
+          case actors.SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
+            Vector(
+              model.Flight("ORY","CPH","NR",_,"DY3635",_,None,None,0)
+            ),
+            None,prices,order_urls))) => 
+            println("Result" , tkts)
+            assert(prices == Map("NR"->307.9f))
+            assert(order_urls == Map("NR" -> "NR:201503071105ORY:201503071515CPH:201503072020FLL"))
+          case actors.SearchResult(tr,tkts) => 
+            println("Result2" , tkts)
+            //assert(tkts == List(
+            //  Ticket(",
+            //    Vector(Flight("ORY","CPH","NR",0,"DY3635",Sat Mar 07 11:05:00 CET 2015,None,None,0), Flight(CPH,FLL,NR,0,DY7041,Sat Mar 07 15:15:00 CET 2015,None,None,0)),None,Map(NR -> 307.9),Map(NR -> NR:201503071105ORY:201503071515CPH:201503072020FLL)))) )
+        }
+
+        
+      }
+    }
+    */
+
+    "HEL -> OSL" in {
+      val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+
+      val fetcher = actors.ExternalGetter.norvegianAirlines
+
+      within (1 minute) {
+        fetcher ! actors.StartSearch(model.TravelRequest("HEL","OSL",model.TravelType.OneWay,
+          df.parse("2014-10-21"),df.parse("2014-10-21"),1,1,0,model.FlightClass.Economy))
 
         expectMsgPF() {
           case actors.SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
@@ -260,6 +304,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
 
 }
 
+/*
 class BaseFetcherActorSpec (_system: ActorSystem) extends TestKit(_system) 
   with ImplicitSender with WordSpecLike with ScalaFutures 
   with BeforeAndAfterAll
@@ -354,6 +399,7 @@ class BaseFetcherActorSpec (_system: ActorSystem) extends TestKit(_system)
 object BaseFetcherActorSpec {
   class BaseFetcherActorTester extends actors.BaseFetcherActor {
     import context.dispatcher
+    val logger = ???
     def receive = {
       case 1 => 
         val s = sender
@@ -380,7 +426,7 @@ object BaseFetcherActorSpec {
   }
 }
   
-
+*/
 
 class FetcherActorSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender
   with WordSpecLike with Matchers with BeforeAndAfterAll with ScalaFutures {

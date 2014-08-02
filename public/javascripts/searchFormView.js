@@ -14,7 +14,7 @@ define([
 
     initialize: function() {
       var mind = new Date();mind.setDate(mind.getDate() );
-      var maxd = new Date();maxd.setDate(maxd.getDate() + 90);
+      var maxd = new Date();maxd.setDate(maxd.getDate() + 365);
       this.$(".date-group").datepicker({
         autoclose: true,
         startDate: mind,
@@ -73,8 +73,14 @@ define([
       this.listenTo(this.model,"change:traveltype",function(m) {$.cookie('traveltype', m.get('traveltype'));});
       this.listenTo(this.model,"change:currency",function(m) {$.cookie('currency', m.get('currency'));});
 
-      this.listenTo(this.model,"change:departure",function(m) {$.cookie('departure', this.yyyymmdd(m.get('departure')));});
-      this.listenTo(this.model,"change:arrival",function(m) {$.cookie('arrival', this.yyyymmdd(m.get('arrival')));});
+      this.listenTo(this.model,"change:departure",function(m) {
+        var v = m.get('departure');
+        if ( v ) $.cookie('departure', this.yyyymmdd(v));
+      });
+      this.listenTo(this.model,"change:arrival",function(m) {
+        var v = m.get('arrival');
+        if ( v ) $.cookie('arrival', this.yyyymmdd(v));
+      });
 
       this.listenTo(this.model.get("to"),"change:iata",function(m) {$.cookie('to', m.get('iata'));});
       this.listenTo(this.model.get("from"),"change:iata",function(m) {$.cookie('from', m.get('iata'));});

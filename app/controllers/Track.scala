@@ -64,17 +64,20 @@ trait Track extends Controller {
             fl => 
               val fromIata = (fl \ "iataFrom").as[JsString].value
               val toIata = (fl \ "iataTo").as[JsString].value
-              val (fromName,fromCityName) = model.Airports.get(fromIata).fold( ("","") ) {
-                x => (x.name,x.city)
+              val (fromName,fromCityName,fromTZ) = model.Airports.get(fromIata).fold( ("","",0) ) {
+                x => 
+                  (x.name,x.city,x.time_zone)
               }
-              val (toName,toCityName) = model.Airports.get(toIata).fold( ("","")  ) {
-                x => (x.name,x.city)
+              val (toName,toCityName,toTZ) = model.Airports.get(toIata).fold( ("","",0)  ) {
+                x => (x.name,x.city,x.time_zone)
               }
               fl.as[JsObject] ++ Json.obj(
                 "fromName" -> fromName,
                 "toName" -> toName,
                 "fromCityName" -> fromCityName,
-                "toCityName" -> toCityName
+                "toCityName" -> toCityName,
+                "fromTZ"   -> fromTZ,
+                "toTZ"   -> toTZ
               )  
           }) 
         }
@@ -123,7 +126,6 @@ trait Track extends Controller {
                           actors.Manager.getGates(fgset).toSeq
                       case None => List()
                     }
-                    println("GATESNE",gates,gatesObjs)
                     implicit val gatesWrites = Json.writes[Gate]
 
                     x.transform(
@@ -132,8 +134,8 @@ trait Track extends Controller {
                       case JsSuccess(ret,_) => 
                         val gatesObj = if (gatesObjs.length > 0 ) Json.obj("gates" -> Json.toJson(gatesObjs)) else Json.obj()
 
-                        val rr = gatesObj ++ret.as[JsObject] 
-                        rr
+                        val ret2 = gatesObj ++ret.as[JsObject] 
+                        ret2
                       case JsError(errors) => 
                         Logger.error("Json postprocessing error")
                         for ( (path,elist) <- errors) {

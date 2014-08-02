@@ -21,7 +21,9 @@ case class NRFlight(
   avldate: Option[java.util.Date],  
   flclassStr:String,
   flnum: String
-)
+) {
+  def withArrivalDate(d:java.util.Date) = NRFlight(iataFrom,iataTo,depdate,Some(d),flclassStr,flnum)
+}
 
 case class NRTicket(
   price: Float,
@@ -32,7 +34,7 @@ case class NRTicket(
   flclass: FlightClass
 ) {
   val dformatter = new java.text.SimpleDateFormat("yyyyMMddHHmm");
-  lazy val sign = {
+  lazy val tuid = {
     val parts = direct_flights.map {
       f => dformatter.format(f.depdate) + f.iataFrom 
     } :+ (dformatter.format(avldate) + direct_flights.last.iataTo)
@@ -108,7 +110,7 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
   case class Complete()
 
   var rqIdx = 0
-  override def preStart() {
+  /*override def preStart() {
     logger.info("Started")
   }
   
@@ -126,6 +128,8 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
 
   }
 
+  */
+
   def waitAnswer(sender:ActorRef,currentRequest:model.TravelRequest ):PartialFunction[Any, Unit] = {
     var tickets = Array[NRTicket]()
     val _waiter:PartialFunction[Any, Unit] = {
@@ -139,16 +143,16 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
     
     case Complete() => 
       logger.info(s"Search $currentRequest: Completed: ${tickets.length} tickets found")
-      val tickets2send = tickets.groupBy(_.sign).map {
+      val tickets2send = tickets.groupBy(_.tuid).map {
         t => 
         if ( currentRequest.flclass ==  Business)
           t._2.filter( _.flclass == Business ).minBy(_.price)  
         else 
           t._2.minBy(_.price)
       }.map {
-        tkt:NRTicket => model.Ticket(tkt.sign,tkt.direct_flights.map {
-          fl => model.Flight(fl.iataFrom,fl.iataTo,"NR",0,fl.flnum,fl.depdate,fl.avldate,None,0)
-        },None,Map("NR"->tkt.price),Map("NR" -> ("NR:"+tkt.sign)) )
+        tkt:NRTicket => model.Ticket(tkt.tuid,tkt.direct_flights.map {
+          fl => model.Flight(fl.iataFrom,fl.iataTo,"DY",0,fl.flnum,fl.depdate,fl.avldate,None,0)
+        },None,Map("DY"->tkt.price),Map("DY" -> ("DY:"+tkt.tuid)) )
       }.toSeq
 
       sender ! SearchResult(currentRequest,tickets2send)
@@ -381,9 +385,11 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
           
           val price = asPrice(trs.at(lastI).innerText)
           val depDate = points(0).depdate
-          val avlDate = (new DateTime(depDate)).withHourOfDay(avl.h).withMinuteOfHour(avl.h).plusDays(avl.daysAdd).toDate()
-                      
-          NRTicket(price,depDate,avlDate,points,flclass)
+          val avlDate = (new DateTime(depDate)).withHourOfDay(avl.h).withMinuteOfHour(avl.m).plusDays(avl.daysAdd).toDate()
+          
+          val points2 = points.updated(points.length-1,points(points.length-1).withArrivalDate(avlDate))
+
+          NRTicket(price,depDate,avlDate,points2,flclass)
         }
         
         self ! AddTickets(fetchedTickets.toSeq)
@@ -405,6 +411,7 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
           logger.error( s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n") )
           p.render("phantomjs/images/norvegian-error.png")
           p.close
+          //self ! Complete()
           throw ex
     } 
     
@@ -413,7 +420,7 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
   def testOn(str:String)(f: => Boolean) {
     if (! f )  throw new ParseException(str)
   }
-
+/*
   def doRealSearchOld(tr:model.TravelRequest) = {
     val dformatter = new java.text.SimpleDateFormat("yyyy-MM-dd");
 
@@ -474,7 +481,7 @@ class NorvegianAirlines extends BaseFetcherActor with PushResultsParser {
 
   
 
-
+*/
 
   def processPush(k:String,v:JsValue) {
     k match {

@@ -13,7 +13,8 @@ define([
       this.lastSort = "";
       this.firstRendered = 30;
       this.renderedIdx = 0;
-      this.rendered    = 0;
+
+      this.headerInited = false;
 
       this.filterModel = ops.filterModel;
 
@@ -29,6 +30,8 @@ define([
 
 
       this.listenTo(this.model, 'add', this.addOne);
+      this.listenTo(this.model, 'remove', this.removeOne);
+      this.listenTo(this.model, 'timetable', this.addTickets);
 
       this.listenTo(this.model, 'tick',this.progressTick);
       this.listenTo(this.model, 'done',this.progressDone);
@@ -36,6 +39,7 @@ define([
 
       this.listenTo(this.filterModel,"change",this.onFilterChanged);
 
+      this.renderedModels = {};
     },
 
     onScroll: function() {
@@ -59,44 +63,21 @@ define([
         if ( rendered < this.firstRendered ) {
           if ( this.filterModel.pass(flitem)) {
             rendered++;
+            this.renderedIdx = i; 
             flitem.view.appendTo(this.$flitems);
           } 
-          this.renderedIdx = i; 
         }
       }
-      this.rendered = rendered;
     },
     reflectHeader: function() {
       var srt = this.filterModel.get("srt") || 'asc';
       var srtField = this.filterModel.get("srtField") || 'price-col';
       $(".cell").removeClass("asc").removeClass("desc");
       $(".cell."+srtField,this.$headers).addClass(srt);
-      var sign = srt == "desc" ? -1 : 1;
+      
       var lastSort = srt+":" + srtField;
       if ( lastSort !=  this.lastSort) {
-        if ( srtField == "price-col") {
-          this.model.comparator = function(m) {
-            return sign * m.getFullPrice();
-          };  
-        } else if ( srtField == "departure") {
-          this.model.comparator = function(m) {
-            return sign * m.get("direct_flights")[0].departure;
-          };
-        } else if ( srtField == "arrival") {
-          this.model.comparator = function(m) {
-            var df = m.get("direct_flights");
-            return sign * df[df.length-1].arrival;
-          };
-        } else if ( srtField == "duration") {
-          this.model.comparator = function(m) {
-            return sign * m.getAvgDuration();
-          };
-        } else if ( srtField == "stops-col") {
-          this.model.comparator = function(m) {
-            return sign * m.getStopsCnt();
-          };
-        }
-        
+        this.model.comparator = this.filterModel.getComparator();        
         this.model.sort();
         this.lastSort = lastSort;  
       }
@@ -123,12 +104,14 @@ define([
       });
     },
     addOne: function(flitem) {
-      if ( this.rendered == 0) {
+      if (  ! this.headerInited ) {
+        this.headerInited = true;
         this.initHeader();
       }
       var view = new FlightView({model: flitem,flightsModel:this.model});
       view.render();
       flitem.view = view;
+      /*
       if ( this.rendered < this.firstRendered ) {
         if ( this.filterModel.pass(flitem)) {
           this.rendered++;
@@ -136,6 +119,44 @@ define([
         }
         this.renderedIdx = this.model.length - 1;
       }
+      */
+    },
+
+    removeOne: function(flitem) {
+      if ( flitem.cid in this.renderedModels ) {
+        delete this.renderedModels[flitem.cid];
+        flitem.view.remove();
+        //this.$flitems.remove();
+      }
+    },
+
+    addTickets: function() {
+      if (  ! this.headerInited ) {
+        this.headerInited = true;
+        this.initHeader();
+      }
+      var mx = Math.min(
+        this.model.length,
+        Math.max(this.renderedIdx,this.firstRendered)
+      );
+      this.renderedIdx = 0;
+      var $lastEl = null;
+      for ( var i = 0 ; i < mx ; i++ ) {
+        var flitem = this.model.at(i);
+        if ( flitem.cid in this.renderedModels) {
+          $lastEl = flitem.view.$el;
+          this.renderedIdx++ ;
+          continue ;
+        }
+        
+        if ( this.filterModel.pass(flitem)) {
+          this.renderedModels[flitem.cid] = 1 ;
+          this.renderedIdx++ ;
+          flitem.view.prependTo(this.$flitems,$lastEl);
+          $lastEl = flitem.view.$el;
+        }
+      }
+      
     },
 
     progressError:function(error) {
