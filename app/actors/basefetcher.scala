@@ -60,6 +60,8 @@ trait WithLogger {
 
 abstract class BaseFetcherActor extends Actor with WithLogger {
 
+  class NotAvailibleDirecttion extends Throwable;
+
   import sys.process._
   val system = akka.actor.ActorSystem("system")
 
@@ -80,100 +82,41 @@ abstract class BaseFetcherActor extends Actor with WithLogger {
 
   override def preRestart(reason:Throwable,message:Option[Any]) {
     logger.info(s"ReStarted $reason $message")
-    
+    /*
     message match {
       case Some(x) => self forward x
       case None => 
     }
-
+    */
   }
-/*
-  def execAsync(cmd:Seq[String])(fn: String=>Boolean) = {
-    Logger.info(s"execAsync ${cmd.mkString(" ")}")
-    pid+=1
+  
+  val updateIatas = true
 
-    val fatalPromise = Promise[Option[String]]()
-    val pb = Process(cmd)
-    
-    val out = new StringBuilder
-    //val err = new StringBuilder
+  var availIatas:Set[String] = null
+
+  def updateAvailIatas(v:Set[String]) = {
+    logger.info(s"UpdateAvailIatas ${v.size}")
+    availIatas = v
+  }
+
+
+  def waitFor[T](timeout:Duration,what:String)(awaitable: scala.concurrent.Awaitable[T]) = {
+    val t0 = System.nanoTime()
 
     try {
-      val pr:Process = pb.run(ProcessLogger {
-        s =>
-        try {
-          fn(s)
-        } catch {
-          case e:Exception => 
-            fatalPromise.failure(e)
-        }
-      })
-      val exec = Future {
-        //val ret = cmd !!
-        pr.exitValue match {
-          case 0 => Some(out.toString)
-          case _ => None
-        }
-        
-      }
-
-      var timeout = system.scheduler.scheduleOnce(10000 millis) {
-        pr.destroy()
-        fatalPromise.success(None)
-      }
-      
-
-      val r = Future.firstCompletedOf(Seq(fatalPromise.future,exec))
-
-      // postprocessing cleanup
-      r.onComplete {
-        _ => 
-          pr.destroy()
-          timeout.cancel()
-      }
-      
-      r      
+      scala.concurrent.Await.result(awaitable,timeout)
     } catch {
-      case e:Exception => Future failed e
+      case x:java.util.concurrent.TimeoutException => throw new java.util.concurrent.TimeoutException(s"$what:timeout $timeout")
+      case x:Throwable => throw x
     }
-
+    val t1 = System.nanoTime()
+    val taken = (t1-t0)/1e9
+    logger.debug(s"waitFor:$what taken=$taken s")
   }
 
-  def execWithTimeout(cmd:Seq[String]) = {
-  	pid+=1
 
-    val p = Promise[Option[String]]()
-    val pb = Process(cmd)
-    
-    val out = new StringBuilder
-    //val err = new StringBuilder
-
-    val pr = pb.run(ProcessLogger(out append _+"\n"/*,err append _*/))
-    
-
-    val exec = Future {
-      //val ret = cmd !!
-      pr.exitValue match {
-        case 0 => Some(out.toString)
-        case _ => None
-      }
-      
-    }
-
-    var timeout = system.scheduler.scheduleOnce(1000 millis) {
-      pr.destroy()
-      p.success(None)
-    }
-    
-
-    val r = Future.firstCompletedOf(Seq(p.future,exec))
-    
-    exec.onComplete {
-      _ => timeout.cancel()
-    }
-
-    r
+  def testOn(str:String)(f: => Boolean) {
+    if (! f )  throw new ParseException(str)
   }
-
-  */
+  
 }

@@ -195,7 +195,10 @@ define([
       return gatesHtml;
     },
     hash2url: function(sign) {
-      return "/r/"+sign;
+      var adults = this.flightsModel.indexModel.get("adults");
+      var childs = this.flightsModel.indexModel.get("childs");
+      var infants = this.flightsModel.indexModel.get("infants");
+      return "/r/"+adults + "/" + childs + "/" + infants + "/" +sign;
     },
     prepareRouteDetails: function(avsh,df) {
       var im = this.flightsModel.indexModel;      

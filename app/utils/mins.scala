@@ -3,6 +3,14 @@ package utils
 import scala.collection.{immutable,mutable}
  
 object Utils2 {
+
+  def withClose[A](underlying: TraversableOnce[A])(close: ()=>Unit) = new Traversable[A] {
+   def foreach[U](callback: A=>U) {
+      for (x <- underlying) callback(x)
+      close()
+   }
+  }
+
   implicit class RichTraversable[A](traversable: Traversable[A]) {
     // find N minimal values
     def mins[B >: A](n: Int)(implicit cmp: Ordering[B]): immutable.IndexedSeq[A] = {

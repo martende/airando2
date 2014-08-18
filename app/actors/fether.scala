@@ -75,11 +75,15 @@ object ExternalGetter {
   val norvegianAirlines = Akka.system.actorOf(Props[actors.NorvegianAirlines],"NorvegianAirlines")  
   val airberlin = Akka.system.actorOf(Props[actors.Airberlin],"Airberlin")  
   val aviasales = Akka.system.actorOf(Props[actors.Aviasales],"Aviasales")
+  val swissairlines = Akka.system.actorOf(Props(new actors.SwissAirlines()),"SwissAirlines")
+  val flytap = Akka.system.actorOf(Props(new actors.FlyTap()),"FlyTap")
 
   lazy val fetchers = Seq(
-    "NorvegianAirlines" -> norvegianAirlines,
-    "Airberlin" -> airberlin,
-    "Aviasales" -> aviasales
+    //"NorvegianAirlines" -> norvegianAirlines,
+    //"Airberlin" -> airberlin,
+    //"Aviasales" -> aviasales,
+    //"SwissAirlines" -> swissairlines,
+    "FlyTap" -> flytap
   )
   
 }
@@ -90,7 +94,6 @@ class ExternalGetter extends Actor {
   val ( enumerator, channel ) = Concurrent.broadcast[JsValue]
 
   var idx = 0
-  var schedule:Cancellable = _
   var buffer:List[JsValue] = List()
   val logger = Logger("ExternalGetter")
 
@@ -108,7 +111,7 @@ class ExternalGetter extends Actor {
       import model.Formatters._
 
       val allFetchers = for ( (fid,fetcher) <- fetchers) yield {
-        val fut = ask(fetcher,StartSearch(tr))(Timeout(60 seconds));
+        val fut = ask(fetcher,StartSearch(tr))(Timeout(model.Config.fetcherAskTimeout));
         val promise = Promise[Boolean]()
 
         fut.onComplete {
@@ -218,6 +221,7 @@ class ManagerActor extends Actor {
     }
 }
 
+
 object Manager {
 
   val logger = Logger("Manager")
@@ -307,6 +311,14 @@ object Manager {
   def updateCurrencies(curs: Map[String,Float]) = {
     currencyActor ! curs
   }
+  def updateCurrencies(curs: (String,Float)) = {
+    currencyActor ! curs
+  }
+
+  def getCurrencyRatio(cur:String) = {
+    fastAwait( (currencyActor ? cur ).mapTo[Float] )
+  }
+
 }
 
 

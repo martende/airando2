@@ -45,11 +45,21 @@ case class Ticket(
   order_urls: Map[String,String]
 ) {
   val dformatter = new java.text.SimpleDateFormat("yyyyMMddHHmm");
-  lazy val tuid = {
-    val parts = direct_flights.map {
-      f => dformatter.format(f.departure) + f.iataFrom + "-" + f.airline
-    } :+ (dformatter.format(direct_flights.last.arrival.get) + direct_flights.last.iataTo )
+  
+  def minPrice = native_prices.values.min
+
+  def p2tuid(points:Seq[model.Flight]) = {
+    val parts = points.toSeq.map {
+      f => dformatter.format(f.departure) + f.iataFrom 
+    } :+ (dformatter.format(points.last.arrival.get) + points.last.iataTo)
     parts.mkString(":")
+  }
+
+  lazy val tuid = {
+    return_flights match {
+      case None => p2tuid(direct_flights)
+      case Some(rf) => p2tuid(direct_flights) + "-" + p2tuid(rf)
+    }
   }
 }
 

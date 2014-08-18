@@ -102,7 +102,14 @@ class BaseActorTester (_system: ActorSystem) extends akka.testkit.TestKit(_syste
   implicit def str2Date(s:String) = df.parse(s)
 
   val p1 = actors.StartSearch(model.TravelRequest("HEL","OSL",model.TravelType.OneWay,
-          "2014-10-21","2014-10-21",3,2,1,model.FlightClass.Economy))
+          "2015-03-21","2015-03-21",3,2,1,model.FlightClass.Economy))
+
+  val p2 = actors.StartSearch(model.TravelRequest("ZRH","BER",model.TravelType.OneWay,
+          "2015-03-21","2015-03-21",3,2,1,model.FlightClass.Economy))
+
+  val p3 = actors.StartSearch(model.TravelRequest("FRA","JFK",model.TravelType.Return,
+          "2015-03-21","2015-03-22",1,0,0,model.FlightClass.Economy))
+
 
 }
 
@@ -116,24 +123,135 @@ class AviasalesSpec extends BaseActorTester
 
   test("t1") {
     within (5 seconds) {
-      fetcher ! p1
+      fetcher ! p3
       expectMsgPF() {
         case actors.AviasalesSearchResult(tickets,_,_) => 
           assert ( tickets.length >  100 ) 
       }
     }
   }
-/*
-  "PhantomSpec " must {
 
-    "t1" in {
+}
 
-      fetcher ! 
-      
-      // val fetcher = actors.ExternalGetter.airberlin
+class SwissAirlinesSpec extends BaseActorTester
+  with ImplicitSender with ScalaFutures {
 
-      println(12345)
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(600, Seconds), interval = Span(500, Millis))
+  
+  val fetcher = system.actorOf(Props(new actors.SwissAirlines(maxRepeats=1)))  
+  
+  test("p1") {
+    //actors.Manager.updateCurrencies("chf"->1.0f)
+    within (200 seconds) {
+      fetcher ! p1
+      expectMsgPF() {
+        case actors.SearchResult(_,tickets) => 
+          assert ( tickets.length ==  0 ) 
+      }
     }
   }
-*/
+
+
+  test("p2") {
+    actors.Manager.updateCurrencies("chf"->1.0f)
+    within (200 seconds) {
+      fetcher ! p2
+      expectMsgPF() {
+        case actors.SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 545.0 )
+      }
+    }
+  }
+
+  test("p3") {
+    within (200 seconds) {
+      fetcher ! p3
+      expectMsgPF() {
+        case actors.SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 601.0 )
+          
+      }
+    }
+  }
+
+}
+
+
+class FlyTapSpec extends BaseActorTester
+  with ImplicitSender with ScalaFutures {
+
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(60, Seconds), interval = Span(500, Millis))
+
+  val fetcher = system.actorOf(Props(new actors.FlyTap(maxRepeats=1)))
+
+  test("HAM -> SVQ") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.Return,
+          "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case actors.SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 534.52f )
+      }
+    }
+  }
+
+  test("HAM -> SVQ oneway") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.OneWay,
+          "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case actors.SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 304.04f )
+      }
+    }
+  }
+
+  test("SVQ -> HAM oneway") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("SVQ","HAM",model.TravelType.OneWay,
+          "2015-03-23","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case actors.SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 258.69f )
+      }
+    }
+  }
+}
+
+
+
+class CheapAirSpec extends BaseActorTester
+  with ImplicitSender with ScalaFutures {
+
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(60, Seconds), interval = Span(500, Millis))
+
+  val fetcher = system.actorOf(Props(new actors.CheapAir(maxRepeats=1)))
+
+  test("HAM -> SVQ") {
+    within (60 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.Return,
+          "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case actors.SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 534.52f )
+      }
+    }
+  }
+
+
 }

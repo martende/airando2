@@ -12,11 +12,10 @@ import play.api.libs.concurrent.Akka
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
-class PhantomExecutor(_isDebug:Boolean) extends Actor {
+class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds) extends Actor {
   import PhantomExecutor._
 
   val phantomCmd = Seq("./bin/phantomjs","--proxy=127.0.0.1:3128","phantomjs/core.js")
-  val execTimeout = 60 seconds
 
   import context.{dispatcher,become}
   var isDebug = _isDebug
@@ -27,7 +26,7 @@ class PhantomExecutor(_isDebug:Boolean) extends Actor {
   var outputStream:OutputStream = null
   var evlid:Int = 0
   var evals:Map[Int,ActorRef] = Map()
-  var gonaDie = true
+  var gonaDie = false
   // var inOpen = false 
 
   override def preStart() {
@@ -45,12 +44,17 @@ class PhantomExecutor(_isDebug:Boolean) extends Actor {
         
       // Inner
       case ev @ Failed(_) => 
+        become(failed())
         _sender ! ev
       case ev @ Started() => 
-        become(started(_sender))
+        become(started())
         _sender ! ev
       
     }
+  }
+
+  def failed():PartialFunction[Any, Unit] = {
+    case _ => sender ! Failed(new Exception("stopped"))
   }
 
 
@@ -58,7 +62,7 @@ class PhantomExecutor(_isDebug:Boolean) extends Actor {
   def warn(message: => String) = if (isDebug) logger.warn(message)
   def info(message: => String) = logger.info(message)
 
-  def started(_sender:ActorRef):PartialFunction[Any, Unit] = {
+  def started():PartialFunction[Any, Unit] = {
     {
       // case Start() => logger.error("Already started")
       case OpenUrl(url)  => 
@@ -91,13 +95,16 @@ class PhantomExecutor(_isDebug:Boolean) extends Actor {
       case EvalComplete(_evlid,result) =>
         evals.get(_evlid) match {
           case Some(ret) => ret ! EvalResult(result)
+
             evals -= _evlid
           case None => logger.error(s"EvalComplete Duplication: ${_evlid} $result")
         }
-      case ev @ Failed(_) => _sender ! ev
+      case ev @ Failed(_) => 
+        become(failed())
+        for ( (id,_sender) <- evals) _sender ! ev
           
-      case ev : OpenUrlResult => 
-        _sender ! ev
+      //case ev : OpenUrlResult => 
+      //    _sender ! ev
 
       case x => logger.error("Unknown action")
 
@@ -108,7 +115,7 @@ class PhantomExecutor(_isDebug:Boolean) extends Actor {
     case OpenUrl(url) => sender ! OpenUrlResult(Failure(new Exception("duplicate")))
     case ev : OpenUrlResult => 
         _sender ! ev
-        become(started(_sender))
+        become(started())
   }
 
   def receive = {
@@ -122,8 +129,12 @@ class PhantomExecutor(_isDebug:Boolean) extends Actor {
 
   def sendPhantom(cmd:String) {
     debug("sendPhantom " + cmd)
+    //try {
     outputStream.write((cmd + "\n").getBytes)
     outputStream.flush()
+    //} catch {
+    //  case ex:java.io.IOException => fatalPromise.failure(ex)
+    //}
   }
 
   def execAsync() = {
@@ -202,7 +213,9 @@ class PhantomExecutor(_isDebug:Boolean) extends Actor {
 
     val timeout = system.scheduler.scheduleOnce(execTimeout) {
       //process.destroy()
-      fatalPromise.failure(new Exception("timeout"))
+      val msg = s"Exec timeout=$execTimeout"
+      logger.error(msg)
+      fatalPromise.failure(new Exception(msg))
     }
 
     val r = Future.firstCompletedOf(Seq(fatalPromise.future,exec))
@@ -243,7 +256,7 @@ object PhantomExecutor {
   import akka.util.Timeout
   import play.api.libs.concurrent.Execution.Implicits._
 
-  def props(isDebug: Boolean = true): Props = Props(new PhantomExecutor(isDebug))
+  def props(isDebug: Boolean = true,execTimeout:FiniteDuration=120 seconds ): Props = Props(new PhantomExecutor(isDebug,execTimeout))
 
   case class Start()
   case class Started()
@@ -267,7 +280,7 @@ object PhantomExecutor {
     override def toString = s"AutomationException($msg)"
   }
 
-  implicit val openTimeout = Timeout(10 seconds)
+  implicit val openTimeout = Timeout(60 seconds)
   val fastTimeout = 0.5 seconds
 
   case class ClientRect(left:Double,right:Double,top:Double,bottom:Double,height:Double,width:Double)
@@ -282,6 +295,12 @@ object PhantomExecutor {
   )(ClientRect)
 
   class Page(_fetcher:ActorRef) {
+    private def wrapException(x: => Unit) = try {
+        x
+      } catch {
+        case e:Throwable => throw new AutomationException(s"failed: " + e.toString )
+      }
+
     private def evaljs[T](js:String,timeout:Duration = fastTimeout)(implicit r:Reads[T]):T = Await.result( (
       _fetcher ? Eval(js)).mapTo[EvalResult].map {
           case EvalResult(hui) => Json.parse(hui.get).as[T](r)
@@ -289,11 +308,32 @@ object PhantomExecutor {
 
     lazy val title:String = evaljs[String]("""page.evaluate(function() {return document.title;});""")
 
+    //def disableWindowOpen() = evaljs[Boolean]("""page.evaluate(function() {window.open=function() {console.log("XXXXXXXXX")};return true;});""");
+    def evalJsClient(js:String) = wrapException {
+      evaljs[Boolean](s"""page.evaluate(function(){"""+js.replaceAll("\n"," ")+""";return true;} );""")
+    }
+
     def stats = Await.result( (_fetcher ? Stats() ).mapTo[StatsResult] , fastTimeout)
 
-    def render(fname:String) = evaljs[Boolean](s"page.render('$fname');true;",2 seconds)
+    def render(_fname:String) = {
+      val fname = if ( _fname.endsWith(".png") ) _fname.substring(0,_fname.length-4) else _fname
+      try {
+        evaljs[Boolean](s"page.render('$fname.png');fs.write('$fname.html',page.content,'w');true;",2 seconds)
+        Logger("PhantomExecutor").info(s"Render page to $fname - OK")
+      } catch {
+        case ex:Throwable => Logger("PhantomExecutor").warn(s"Render page to $fname - failed")
+      }
+    }
 
-    def selectJSSelect(value:String,button:Selector,_targetEl: => Selector  , waitOpening:Boolean = false) {
+    //def goBack() = evaljs[Boolean](s"page.goBack();true;",2 seconds)
+
+    // real type on input 
+    def typeValue(input:Selector,v:String) {
+      input.click()
+      input.value = v
+    }
+
+    def selectJSSelect(button:Selector,_targetEl: => Selector  , waitOpening:Boolean = false) {
       button.click()
       def invalidate(el : => Selector,cnt:Int,sleep:Duration):Selector = {
         try {
@@ -307,8 +347,53 @@ object PhantomExecutor {
         }
       }
       val targetEl = if( waitOpening ) invalidate(_targetEl,4,500 milliseconds) else _targetEl
+      
+      //setDebug(true)
+      //println(targetEl.offsetParent.exists())
+      //setDebug(false)
 
       val ob = targetEl.offsetParent.getBoundingClientRect()
+      
+      
+      val tb = targetEl.getBoundingClientRect()
+      if ( tb.top >= ob.top &&  tb.bottom <= ob.bottom ) {
+        targetEl.click()
+      } else {
+        val sof = (tb.bottom - ob.top - ob.height  )
+        targetEl.offsetParent.scrollTop = sof
+        var newtb = targetEl.getBoundingClientRect()
+        if ( newtb.top >= ob.top &&  newtb.bottom <= ob.bottom ) {
+          //targetEl.hightlight()
+          targetEl.click()
+        } else {
+          throw new AutomationException("Scrolling failed")
+        }
+      }
+    }
+
+
+    def selectJSSelect2(button:Selector,_targetEl: => Selector  , waitOpening:Boolean = false) {
+      button.click()
+      def invalidate(el : => Selector,cnt:Int,sleep:Duration):Selector = {
+        try {
+          val ret = el
+          ret
+        } catch {
+          case x:Throwable => if (cnt == 0) throw x else {
+            Thread.sleep(sleep.toMillis)
+            invalidate(el,cnt-1,sleep)
+          }
+        }
+      }
+      val targetEl = if( waitOpening ) invalidate(_targetEl,4,500 milliseconds) else _targetEl
+      
+      //setDebug(true)
+      //println(targetEl.offsetParent.exists())
+      //setDebug(false)
+
+      val ob = targetEl.offsetParent.getBoundingClientRect()
+      
+      
       val tb = targetEl.getBoundingClientRect()
       if ( tb.top >= ob.top &&  tb.bottom <= ob.bottom ) {
         targetEl.click()
@@ -326,7 +411,8 @@ object PhantomExecutor {
     }
 
     def close() = {
-      Akka.system.stop(_fetcher)
+      _fetcher ! akka.actor.PoisonPill
+      //Akka.system.stop(_fetcher)
     }
 
     def selectRadio(radioEls:Selector,value:String) = {
@@ -384,8 +470,9 @@ object PhantomExecutor {
           }
         },100);
       """;
-      (_fetcher ? AsyncEval(js.replaceAll("\r\n",""))).mapTo[EvalResult].map {
+      (_fetcher ? AsyncEval(js.replaceAll("\r\n","")))./*mapTo[EvalResult].*/map {
         case EvalResult(hui) => Json.parse(hui.get).as[Boolean]
+        case Failed(ex:Throwable) => throw ex
       }
     }
 
@@ -427,10 +514,15 @@ object PhantomExecutor {
   //extends scala.collection.TraversableLike[Selector, Selector]  {
     def selector:String   
 
+    def setDebug(isDebug:Boolean) = _fetcher ! SetDebug(isDebug)
+
+
+
     private def evfun(js:String) = "page.evaluate(" + 
       "function(selector) {" +
         """if (!window._query)console.log("$$INJECT");var R;var d = _query(selector);""" +
          js.replaceAll("\r\n","") + "return R; } " + ","+selector+");"
+
     def innerHTML:String = Await.result( ( 
         _fetcher ? Eval(
           evfun("""R="";
@@ -469,37 +561,41 @@ object PhantomExecutor {
         } , fastTimeout )
     def exists() = length > 0
     def at(idx:Int) = Selector(_fetcher,this,idx)
+
     def apply(idx:Int) = at(idx)
 
     private def singleValJs[T](js:String)(implicit r:Reads[T]) = {
-      Await.result( ( _fetcher ? Eval(
-        """var retval = """ + evfun("""R=null;
-          if ( d.length == 0 ) {
-            console.log("ERROR:singleValJs:"+JSON.stringify(selector)+" element not found");
-            R = -1;
-          } else if ( d.length > 1 ) {
-            console.log("ERROR:singleValJs:"+JSON.stringify(selector)+" many elements");
-            R = -2;
+      try Await.result( ( _fetcher ? Eval(
+          """var retval = """ + evfun("""R=null;
+            if ( d.length == 0 ) {
+              console.log("ERROR:singleValJs:"+JSON.stringify(selector)+" element not found");
+              R = -1;
+            } else if ( d.length > 1 ) {
+              console.log("ERROR:singleValJs:"+JSON.stringify(selector)+" many elements");
+              R = -2;
+            } else {
+              R = { val:"""+js+""" };
+            }
+            """) + 
+          """
+          if ( retval == -1 ) {
+            throw("NoSuchElementException");
+          } else if ( retval == -2 ) {
+            throw("ManyElementsException");
+          } else if ( retval ) {
+            retval.val;
           } else {
-            R = { val:"""+js+""" };
+            throw("attr failed");
           }
-          """) + 
-        """
-        if ( retval == -1 ) {
-          throw("NoSuchElementException");
-        } else if ( retval == -2 ) {
-          throw("ManyElementsException");
-        } else if ( retval ) {
-          retval.val;
-        } else {
-          throw("attr failed");
-        }
-        
-        """.replaceAll("\r\n","")
+          
+          """.replaceAll("\r\n","")
 
-      )).mapTo[EvalResult].map {
-          case EvalResult(hui) => Json.parse(hui.get).as[T](r)
-      } , fastTimeout)
+        )).mapTo[EvalResult].map {
+            case EvalResult(hui) => Json.parse(hui.get).as[T](r)
+        } , fastTimeout)
+      catch {
+        case e:Throwable => throw new AutomationException(s"singleValJs $selector failed: $e" )
+      }      
     }
 
     private def singleValJsSet(js:String) = {
@@ -549,11 +645,27 @@ object PhantomExecutor {
     )
     def getBoundingClientRect():ClientRect = singleValJs[ClientRect]("d[0].getBoundingClientRect()")
 
+    def isVisible:Boolean = {
+      val br = getBoundingClientRect()
+      ! ( br.width == 0 || br.height == 0)
+    }
+
+    def isChecked:Boolean = singleValJs[Boolean]("d[0].checked")
+
     def tagName:String = singleValJs[String]("d[0].tagName")
     def id:String = singleValJs[String]("d[0].id")
     
     def value:String = singleValJs[String]("d[0].value")
-    def value_=(v:String) = singleValJsSet("d[0].value='"+quote(v)+"'")
+    def value_=(v:String) = wrapException {
+      singleValJsSet("d[0].value='"+quote(v)+"'")
+    }
+
+    private def wrapException(x: => Unit) = try {
+        x
+      } catch {
+        case e:Throwable => throw new AutomationException(s"$selector failed: " + e.toString )
+      }
+
 
     def scrollTop:Double = singleValJs[Double]("d[0].scrollTop")
     def scrollTop_=(v:Double) = singleValJsSet("d[0].scrollTop="+v)
@@ -563,11 +675,16 @@ object PhantomExecutor {
 
     def className:String = singleValJs[String]("d[0].className")
 
-    def click() = 
+    def click() = {
+      def clickfun(js:String) = "page.evaluate(" + 
+      "function(selector,h,w) {" +
+        """if (!window._query)console.log("$$INJECT");var R;var d = _query(selector);""" +
+         js.replaceAll("\r\n","") + "return R; } " + ","+selector+",page.viewportSize.height,page.viewportSize.width);"
+
       try 
         Await.result( ( 
         _fetcher ? Eval(
-          """var rect = """ + evfun("""R=null;
+          """var rect = """ + clickfun("""R=null;
             if ( d.length == 0 ) {
               console.log("ERROR:click:"+JSON.stringify(selector)+" element not found");
               R = -1;
@@ -576,6 +693,8 @@ object PhantomExecutor {
               R = -2;
             } else {
               R = d[0].getBoundingClientRect();
+              var p = R.top + R.height / 2;
+              if ( p > h ) R = -3;
             }
             """) + 
           """
@@ -583,6 +702,8 @@ object PhantomExecutor {
             throw("NoSuchElementException");
           } else if ( rect == -2 ) {
             throw("ManyElementsException");
+          } else if ( rect == -3 ) {
+            throw("OutOfScreen");
           } else if ( rect ) {
             page.sendEvent('click', rect.left + rect.width / 2, rect.top + rect.height / 2);  
             true;
@@ -599,8 +720,9 @@ object PhantomExecutor {
       catch {
         case e:Throwable => throw new AutomationException(s"click $selector failed: $e" )
       }
+    }
 
-    def hightlight() = Await.result( ( 
+    def highlight() = Await.result( ( 
         _fetcher ? Eval(
           """var rect = """ + evfun("""R=null;
             if ( d.length == 0 ) {
@@ -657,32 +779,28 @@ object PhantomExecutor {
       }
     }
 
-  def indexWhere(p: Selector => Boolean, from: Int): Int = {
-    var i = from
-    var these = this drop from
-    while (these.nonEmpty) {
-      if (p(these.head))
-        return i
+    def indexWhere(p: Selector => Boolean, from: Int): Int = {
+      var i = from
+      var these = this drop from
+      while (these.nonEmpty) {
+        if (p(these.head))
+          return i
 
-      i += 1
-      these = these.tail
-    }
-    -1
-  }
-    //def withFilter(p: Selector => Boolean): Selector = new FilteredSelector(_fetcher,this,p)
-
-    /*def filter(p: Selector => Boolean):Selector = {
-      var els:List[Selector] = List()
-      foreach {
-        x => if ( p(x) ) els = x :: els 
+        i += 1
+        these = these.tail
       }
-      Selector(_fetcher,els)      
-    }*/
+      -1
+    }
+    
     def $(selector:String) = new NestedSelector(_fetcher,this,selector)
     def children = new ChildSelector(_fetcher,this)
     def offsetParent = new OffsetParentSelector(_fetcher,this)
     def parentNode = new ParentSelector(_fetcher,this)
     def nextSibling = new SiblingSelector(_fetcher,this)
+    def re(_re:String) = new RegexpSelector(_fetcher,this,_re)
+
+    def getOrElse(default: => Selector): Selector = if ( exists() ) this else default
+
   }
 
   class CssSelector(_fetcher:ActorRef,css:String) extends Selector(_fetcher) {
@@ -691,6 +809,10 @@ object PhantomExecutor {
 
   class NestedSelector(_fetcher:ActorRef,parent:Selector,css:String) extends Selector(_fetcher) {
     def selector = "[" + parent.selector + ",'>>','"+css  +"']"
+  }
+
+  class RegexpSelector(_fetcher:ActorRef,parent:Selector,re:String) extends Selector(_fetcher) {
+    def selector = "[" + parent.selector + ",'re','"+re  +"']"
   }
 
   class ChildSelector(_fetcher:ActorRef,parent:Selector) extends Selector(_fetcher) {
@@ -743,8 +865,8 @@ object PhantomExecutor {
 
   //var openIdx = 1
 
-  def open(url:String,isDebug:Boolean=true):Future[Try[Page]] = {
-    val fetcher = Akka.system.actorOf(props(isDebug=isDebug))
+  def open(url:String,isDebug:Boolean=true,execTimeout:FiniteDuration=120 seconds):Future[Try[Page]] = {
+    val fetcher = Akka.system.actorOf(props(isDebug=isDebug,execTimeout=execTimeout))
     //openIdx+=1
 
     (fetcher ? Start()).flatMap {

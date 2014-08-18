@@ -266,7 +266,6 @@ class Aviasales extends BaseFetcherActor with Caching with AvsParser {
 
   val logger = Logger("Aviasales")
 
-  var availIatas:Set[String] = null
   var rqIdx = 0
   var curSender:ActorRef = null
   var curRequest:model.TravelRequest = null
@@ -298,7 +297,7 @@ class Aviasales extends BaseFetcherActor with Caching with AvsParser {
   }
 
   val pageLoadTimeout = 2 seconds
-  val pageResultTimeout = 10 seconds
+  val pageResultTimeout = 60 seconds
 
 
   def doRealSearch(tr:model.TravelRequest,maxTryes:Int = 3) {
