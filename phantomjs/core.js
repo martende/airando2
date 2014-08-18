@@ -1,12 +1,19 @@
 var system = require('system');
 var page = require('webpage').create();
+var fs = require('fs');
+
 var CONFIG = {
 	debug: true,
 };
 
 page.viewportSize = {
-  width: 600,
-  height: 2400
+  width: 800,
+  height: 3400
+};
+
+page.onConfirm = function(msg) {
+	console.log("confirmClicked: " + msg);
+  	return true; // `true` === pressing the "OK" button, `false` === pressing the "Cancel" button
 };
 
 page.onConsoleMessage = function(msg) {
@@ -15,15 +22,34 @@ page.onConsoleMessage = function(msg) {
 		page.evaluate(function(_inj_query){
 			eval("window._query = " + _inj_query + ";");
 		},_query.toString());
+
+		
+
+
 		return;
 	}
   console.log("CLT:" + msg);
 };
 
+
+page.onPageCreated = function(newPage) {
+  console.log('A new child page was created! Its requested URL is not yet available, though.');
+  // Decorate
+  newPage.onClosing = function(closingPage) {
+    console.log('A child page is closing: ' + closingPage.url);
+  };
+
+};
+
+
 var _query = function(selector) {
     var idx = null;
     var text2re = null;
     var ds = [];
+    var exists = function (a,b) {
+    	var r = a.indexOf(b);
+    	return r  != -1 && r !== undefined;
+   	};
     if (selector instanceof Array) {
     	if (selector[1] == '=') {
     		ds = _query(selector[0]);
@@ -36,26 +62,26 @@ var _query = function(selector) {
     		var ds0 = _query(selector[0]);
     		for ( var i = 0; i < ds0.length ; i++) {
     			var ds1 = ds0[i].offsetParent;
-    			if ( ds.indexOf(ds1) == -1  ) ds.push(ds1);
+    			if ( ! exists(ds,ds1) ) ds.push(ds1);
     		}
     	} else if (selector[1] == 'up') {
     		var ds0 = _query(selector[0]);
     		for ( var i = 0; i < ds0.length ; i++) {
     			var ds1 = ds0[i].parentNode;
-    			if ( ds.indexOf(ds1) == -1  ) ds.push(ds1);
+    			if ( ! exists(ds,ds1)  ) ds.push(ds1);
     		}
     	} else if (selector[1] == 'ns') {
     		var ds0 = _query(selector[0]);
     		for ( var i = 0; i < ds0.length ; i++) {
-    			var ds1 = ds0[i].nextSibling;
-    			if ( ds.indexOf(ds1) == -1  ) ds.push(ds1);
+    			var ds1 = ds0[i].nextElementSibling;
+    			if ( ! exists(ds,ds1)  ) ds.push(ds1);
     		}
     	} else if (selector[1] == '>') {
     		var ds0 = _query(selector[0]);
     		for ( var i = 0; i < ds0.length ; i++) {
     			var ds1 = ds0[i].children;
     			for ( var j = 0; j < ds1.length ; j++) {
-    				if ( ds.indexOf(ds1[j]) == -1  ) ds.push(ds1[j]);
+    				if ( ! exists(ds,ds1[j])  ) ds.push(ds1[j]);
     			}
     		}
     	} else if (selector[1] == '>>') {
@@ -63,10 +89,17 @@ var _query = function(selector) {
     		for ( var i = 0; i < ds0.length ; i++) {
     			var ds1 = ds0[i].querySelectorAll(selector[2]);
     			for ( var j = 0; j < ds1.length ; j++) {
-    				if ( ds.indexOf(ds1[j]) == -1  ) ds.push(ds1[j]);
+    				if ( ! exists(ds,ds1[j])  ) ds.push(ds1[j]);
     			}
     		}
 
+    	} else if (selector[1] == 're' ) {
+    		var ds0 = _query(selector[0]);
+			var re   = RegExp(selector[2]);
+    		for ( var i = 0; i < ds0.length ; i++) {
+    			var ds1 = ds0[i].innerText;
+    			if (ds1.match(re)) ds.push(ds0[i]);
+    		}
     	} else {
     		ds = [];
     	}

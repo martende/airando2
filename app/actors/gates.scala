@@ -38,7 +38,9 @@ class GatesStorageActor extends Actor {
 
     var gatesMap:Map[String,Gate] = Map(
       "DY"->Gate("DY","eur","NorvegianAirlines"),
-      "AB"->Gate("AB","eur","Airberlin")
+      "AB"->Gate("AB","eur","Airberlin"),
+      "LX"->Gate("LX","eur","Swiss"),
+      "TP"->Gate("TP","eur","TAP Portugal")
     )
     def receive = {
         case gateIds:Seq[Any] => 
@@ -55,10 +57,18 @@ class GatesStorageActor extends Actor {
 
 
 class CurrenciesStorageActor extends Actor {
+  var curMap:Map[String,Float] = Map()
 
-    var curMap:Map[String,Float] = Map()
-    def receive = {
-      case items:Map[_,_] => curMap = curMap ++ items.asInstanceOf[Map[String,Float]]
-      case items:Seq[_] => sender ! items.asInstanceOf[Seq[String]].map{ k => ( k -> curMap.get(k) ) }.toMap
-    }
+  override def preStart() {
+    Logger("CurrenciesStorageActor").info("Load currency db")
+    curMap = Map("chf"->1.0f,"usd"->1.0f,"eur"->1.0f)
+  }
+  
+  def receive = {
+    case item:(_,_)     => curMap = curMap + item.asInstanceOf[(String,Float)]
+    case items:Map[_,_] => curMap = curMap ++ items.asInstanceOf[Map[String,Float]]
+    case items:Seq[_]   => sender ! items.asInstanceOf[Seq[String]].map{ k => ( k -> curMap.get(k) ) }.toMap
+    case cur:String     => sender ! curMap.getOrElse(cur,akka.actor.Status.Failure(new Exception(s"Unknown currency $cur")))
+  }
+
 }

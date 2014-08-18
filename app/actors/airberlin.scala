@@ -30,7 +30,6 @@ class Airberlin extends BaseFetcherActor  {
 
   val logger = Logger("Airberlin")
 
-  var availIatas:Set[String] = null
   var rqIdx = 0
   var curSender:ActorRef = null
   var curRequest:model.TravelRequest = null
@@ -40,11 +39,6 @@ class Airberlin extends BaseFetcherActor  {
       processSearch(sender,tr)
   }
 
-
-  def updateAvailIatas(v:Set[String]) = {
-    logger.info(s"UpdateAvailIatas ${v.size}")
-    availIatas = v
-  }
 
   def complete(tickets:Seq[ABTicket] = List() ) = {
     logger.info(s"Search $curRequest: Completed: ${tickets.length} tickets found")
@@ -116,7 +110,6 @@ class Airberlin extends BaseFetcherActor  {
         }
       },pageLoadTimeout)
 
-      val updateIatas = true
       if ( updateIatas )  {
         p.$("#route-outbound .fullsuggest-closed").click()
       
@@ -142,13 +135,13 @@ class Airberlin extends BaseFetcherActor  {
 
       p.$("#route-outbound .fullsuggest-open").click()
 
-    	p.selectJSSelect(src,
+    	p.selectJSSelect(
     		p.$("#route-outbound .fullsuggest-closed"),
     		p.$("#route-outbound .suggestcontainer > div").find( _.innerText matches ".*\\("+src+"\\)\\W*$"  ).getOrElse(throw new NotAvailibleDirecttion()),
         waitOpening = true
     	)
 
-      p.selectJSSelect(dst,
+      p.selectJSSelect(
         p.$("#route-inbound .fullsuggest-closed"),
         p.$("#route-inbound > div.suggestcontainer > div").find( _.innerText matches ".*\\("+dst+"\\)\\W*$"  ).getOrElse(throw new NotAvailibleDirecttion()),
         waitOpening = true
@@ -300,9 +293,9 @@ class Airberlin extends BaseFetcherActor  {
         complete()
 
       case ex:NotAvailibleDirecttion =>
-        p.close
         logger.info( s"Parsing: $tr no such direction")
         p.render("phantomjs/images/airberlin-error.png")
+        p.close
         complete()
 
       case ex:Throwable => 

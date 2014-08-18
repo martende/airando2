@@ -95,7 +95,7 @@ class PhantomTest (_system: ActorSystem) extends TestKit(_system)
 
       assert(p.$("#d1").innerHTML == "D1C")
 
-      intercept[PhantomExecutor.NoSuchElementException] {
+      intercept[PhantomExecutor.AutomationException] {
         p.$("#d1no").click()  
       }
 
@@ -183,6 +183,12 @@ class PhantomTest (_system: ActorSystem) extends TestKit(_system)
       
       assert(opspn.length == 3 )
     }
+    "re selector"  in {
+      val r = PhantomExecutor.open("file:///home/belka/airando2/testdata/t2.html",isDebug=true)
+      var Success(p) = scala.concurrent.Await.result(r,1 seconds) 
+      val t = p.$("span").re("span[13]")
+      assert(t.length == 2 )
+    }
 }
 
 
@@ -232,11 +238,11 @@ class PhantomTestX (_system: ActorSystem) extends TestKit(_system)
         val adults = 3
         val childs = 2
         val infants = 1
-        p.selectJSSelect(src,
+        p.selectJSSelect(
           p.$(".webpart.first .select2-container.selectdestination").at(0),
           p.$(".webpart.first .select2-dropdown-open ul.select2-results .select2-result").find( _.innerText matches ".*\\("+src+"\\)$"  ).get
         )
-        p.selectJSSelect(dst,
+        p.selectJSSelect(
           p.$(".webpart.first .select2-container.selectdestination").at(1),
           p.$(".webpart.first .select2-dropdown-open ul.select2-results .select2-result").find( _.innerText matches ".*\\("+dst+"\\)$"  ).get
         )

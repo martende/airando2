@@ -21,10 +21,14 @@
   <logger name="PhantomExecutor" level="DEBUG" />
   <logger name="AvsCacheParser" level="DEBUG" />
   
+
   <logger name="NorvegianAirlines" level="DEBUG" />
   <logger name="Airberlin" level="DEBUG" />
   <logger name="Aviasales" level="DEBUG" />
-
+  <logger name="SwissAirlines" level="DEBUG" />
+  <logger name="FlyTap" level="DEBUG" />
+  <logger name="CheapAir" level="DEBUG" />
+  
   <root level="ERROR">
     <appender-ref ref="STDOUT" />
     <appender-ref ref="FILE" />
