@@ -239,7 +239,7 @@ class CheapAirSpec extends BaseActorTester
     PatienceConfig(timeout = Span(60, Seconds), interval = Span(500, Millis))
 
   val fetcher = system.actorOf(Props(new actors.CheapAir(maxRepeats=1)))
-
+/*
   test("HAM -> SVQ") {
     within (60 seconds) {
       fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.Return,
@@ -248,10 +248,31 @@ class CheapAirSpec extends BaseActorTester
         case actors.SearchResult(_,tickets) => 
           assert ( tickets.length !=  0 ) 
           val mt = tickets.minBy(_.minPrice) 
-          assert( mt.minPrice == 534.52f )
+          assert( mt.minPrice == 507.0f )
+          
+          val f1 = tickets.find(_.minPrice == 585 ).get
+          assert ( f1.tuid == "201503211100HAM:201503211440PMI:201503211610SVQ-201503231010SVQ:201503231230BCN:201503231510HAM" )
+          
       }
     }
   }
-
+*/
+  test("p1") {
+    within (60 seconds) {
+      fetcher ! p1
+      expectMsgPF() {
+        case actors.SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          /*for ( t <- tickets ) {
+            println(t)
+          }*/
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 490 )
+          
+          //val f1 = tickets.find(_.minPrice == 585 ).get
+          //assert ( f1.tuid == "201503211100HAM:201503211440PMI:201503211610SVQ-201503231010SVQ:201503231230BCN:201503231510HAM" )
+      }
+    }
+  }
 
 }

@@ -120,6 +120,8 @@ case class TravelRequest(
   override def toString = s"Tr($iataFrom->$iataTo)"
 }
 
+case class CacheRequest(service:String,tr:TravelRequest)
+
 case class GeoPoint(lon:Float,lat:Float) {
   def distance(t:GeoPoint) = {
     var R = 6371; // km (change this constant to get miles)

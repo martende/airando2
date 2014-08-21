@@ -75,7 +75,7 @@ class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds)
         evals += ( evlid -> sender )
         sendPhantom("EVAL " + evlid + " " + js)
       case AsyncEval(js) => 
-        debug("RECV Eval()")
+        debug("RECV AsyncEval()")
         evlid+=1
         evals += ( evlid -> sender )
         sendPhantom("AVAL " + evlid + " " + js)
@@ -318,10 +318,10 @@ object PhantomExecutor {
     def render(_fname:String) = {
       val fname = if ( _fname.endsWith(".png") ) _fname.substring(0,_fname.length-4) else _fname
       try {
-        evaljs[Boolean](s"page.render('$fname.png');fs.write('$fname.html',page.content,'w');true;",2 seconds)
+        evaljs[Boolean](s"page.render('$fname.png');fs.write('$fname.html',page.content,'w');true;",5 seconds)
         Logger("PhantomExecutor").info(s"Render page to $fname - OK")
       } catch {
-        case ex:Throwable => Logger("PhantomExecutor").warn(s"Render page to $fname - failed")
+        case ex:Throwable => Logger("PhantomExecutor").warn(s"Render page to $fname - failed Exception($ex")
       }
     }
 
@@ -471,7 +471,8 @@ object PhantomExecutor {
         },100);
       """;
       (_fetcher ? AsyncEval(js.replaceAll("\r\n","")))./*mapTo[EvalResult].*/map {
-        case EvalResult(hui) => Json.parse(hui.get).as[Boolean]
+        case EvalResult(hui) => 
+          Json.parse(hui.get).as[Boolean]
         case Failed(ex:Throwable) => throw ex
       }
     }
@@ -500,6 +501,19 @@ object PhantomExecutor {
       _waitForSelector(el,sellist,timeout)
     }
     
+    def waitUntilVisible(el:Selector,timeout:Duration=1000 milliseconds) = {
+      val sellist = el match {
+        case els:ListedSelector => 
+          "return " + els.items.map {
+            el => s"_query(${el.selector}).length > 0 && (! _query(${el.selector})[0].offsetParent ) "
+          }.mkString(" && ");
+        case _ => 
+          s"return  _query(${el.selector}).length > 0 && (! _query(${el.selector})[0].offsetParent ) "
+      }
+      _waitForSelector(el,sellist,timeout)
+    }
+    
+
     def $(csss:String*) = if (csss.length == 1 ) Selector(_fetcher,csss.head) 
       else Selector(_fetcher,csss.map {css => Selector(_fetcher,css) })
 
@@ -515,8 +529,6 @@ object PhantomExecutor {
     def selector:String   
 
     def setDebug(isDebug:Boolean) = _fetcher ! SetDebug(isDebug)
-
-
 
     private def evfun(js:String) = "page.evaluate(" + 
       "function(selector) {" +
@@ -722,6 +734,65 @@ object PhantomExecutor {
       }
     }
 
+    def move() = {
+      def movefun(js:String) = "page.evaluate(" + 
+      "function(selector,h,w) {" +
+        """if (!window._query)console.log("$$INJECT");var R;var d = _query(selector);""" +
+         js.replaceAll("\r\n","") + "return R; } " + ","+selector+",page.viewportSize.height,page.viewportSize.width);"
+
+      try 
+        Await.result( ( 
+        _fetcher ? Eval(
+          """var rect = """ + movefun("""R=null;
+            if ( d.length == 0 ) {
+              console.log("ERROR:move:"+JSON.stringify(selector)+" element not found");
+              R = -1;
+            } else if ( d.length > 1 ) {
+              console.log("ERROR:move:"+JSON.stringify(selector)+" many elements");
+              R = -2;
+            } else {
+              R = d[0].getBoundingClientRect();
+              var p = R.top + R.height / 2;
+              if ( p > h ) {
+                window.document.body.scrollTop = R.top;
+                R = {
+                  top: R.top - window.document.body.scrollTop,
+                  left: R.left,
+                  width: R.width,
+                  height: R.height,
+                  rollback: true
+                };
+              }
+            }
+            """) + 
+          """
+          if ( rect == -1 ) {
+            throw("NoSuchElementException");
+          } else if ( rect == -2 ) {
+            throw("ManyElementsException");
+          } else if ( rect == -3 ) {
+            throw("OutOfScreen");
+          } else if ( rect ) {
+            page.sendEvent('mousemove', rect.left + rect.width / 2, rect.top + rect.height / 2);  
+            if ( rect.rollback ) {
+              page.evaluate(function() {window.document.body.scrollTop = 0;});
+            }
+            true;
+          } else {
+            throw("move failed");
+          }
+          
+          """.replaceAll("\r\n","")
+
+        )).mapTo[EvalResult].map {
+            case EvalResult(hui) => Json.parse(hui.get).as[Boolean]
+            //case EvalResult(Failure(e))   => throw new AutomationException(s"move $selector failed: $e" )
+        } , fastTimeout)
+      catch {
+        case e:Throwable => throw new AutomationException(s"move $selector failed: $e" )
+      }
+    }
+
     def highlight() = Await.result( ( 
         _fetcher ? Eval(
           """var rect = """ + evfun("""R=null;
@@ -792,7 +863,10 @@ object PhantomExecutor {
       -1
     }
     
+    def page = new Page(_fetcher)
+
     def $(selector:String) = new NestedSelector(_fetcher,this,selector)
+    def root(selector:String) = Selector(_fetcher,selector)
     def children = new ChildSelector(_fetcher,this)
     def offsetParent = new OffsetParentSelector(_fetcher,this)
     def parentNode = new ParentSelector(_fetcher,this)

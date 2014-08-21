@@ -22,10 +22,6 @@ page.onConsoleMessage = function(msg) {
 		page.evaluate(function(_inj_query){
 			eval("window._query = " + _inj_query + ";");
 		},_query.toString());
-
-		
-
-
 		return;
 	}
   console.log("CLT:" + msg);

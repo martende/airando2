@@ -32,7 +32,7 @@ import model.FlightClass._
 import java.util.Date
 import java.text.SimpleDateFormat
 
-import model.Gate
+import model.{Gate,CacheRequest}
 
 class GatesStorageActor extends Actor {
 
@@ -40,8 +40,10 @@ class GatesStorageActor extends Actor {
       "DY"->Gate("DY","eur","NorvegianAirlines"),
       "AB"->Gate("AB","eur","Airberlin"),
       "LX"->Gate("LX","eur","Swiss"),
-      "TP"->Gate("TP","eur","TAP Portugal")
+      "TP"->Gate("TP","eur","TAP Portugal"),
+      actors.CheapAir.ID->Gate(actors.CheapAir.ID,"usd","CheapAir")
     )
+
     def receive = {
         case gateIds:Seq[Any] => 
           if (!gateIds.isEmpty) gateIds.head match {
@@ -71,4 +73,71 @@ class CurrenciesStorageActor extends Actor {
     case cur:String     => sender ! curMap.getOrElse(cur,akka.actor.Status.Failure(new Exception(s"Unknown currency $cur")))
   }
 
+}
+
+import com.mongodb.casbah.Imports._
+import org.joda.time.LocalDateTime
+import com.mongodb.casbah.commons.conversions.scala._
+
+trait DBApi {
+  val mongoClient:MongoClient
+  val db:MongoDB
+  var colls:Map[String,MongoCollection]
+
+  implicit def tr2Mongo(tr:TravelRequest) = MongoDBObject(
+    "iataFrom" -> tr.iataFrom,
+    "iataTo" -> tr.iataTo,
+    "departure" -> tr.departure,
+    "arrival" -> tr.arrival,
+    "adults"  -> tr.adults,
+    "childs"  -> tr.childs,
+    "infants"  -> tr.childs,
+    "traveltype" -> tr.traveltype,
+    "flclass" -> tr.flclass
+  )
+
+  def save(service:String,r:SearchResult) {
+    
+    val collection = colls.getOrElse(service,{
+      colls += service -> db(collection)
+    })
+
+    cheapairCollection.update(
+      MongoDBObject("tr" -> tr)
+      MongoDBObject(
+        "added" -> LocalDateTime.now(),
+        "tr"    -> tr,
+        "ts"    -> ts
+      )
+    )
+  }
+}
+
+class CacheStorageActor extends Actor with DBApi {
+  
+  RegisterJodaTimeConversionHelpers()
+
+  val mongoClient:MongoClient = MongoClient("localhost", 27017)
+  val db:MongoDB = mongoClient("airando2")
+  val cheapairCollection:MongoCollection = db("cheapair")
+
+
+  
+
+  def receive = {
+    case CacheResult("cheapair",SearchResult(tr,ts)) => 
+      cheapairCollection.update(
+        MongoDBObject("tr" -> tr)
+        MongoDBObject(
+          "added" -> LocalDateTime.now(),
+          "tr"    -> tr,
+          "ts"    -> ts
+        )
+      )
+    case CacheRequest("cheapair",tr) => 
+      sender ! cheapairCollection.findOne(tr).map({
+        ret => 
+        SearchResult(tr,Seq())
+      })
+  }
 }

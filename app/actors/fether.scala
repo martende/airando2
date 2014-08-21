@@ -77,13 +77,15 @@ object ExternalGetter {
   val aviasales = Akka.system.actorOf(Props[actors.Aviasales],"Aviasales")
   val swissairlines = Akka.system.actorOf(Props(new actors.SwissAirlines()),"SwissAirlines")
   val flytap = Akka.system.actorOf(Props(new actors.FlyTap()),"FlyTap")
+  val cheapair = Akka.system.actorOf(Props(new actors.CheapAir()),"CheapAir")
 
   lazy val fetchers = Seq(
-    //"NorvegianAirlines" -> norvegianAirlines,
-    //"Airberlin" -> airberlin,
-    //"Aviasales" -> aviasales,
-    //"SwissAirlines" -> swissairlines,
-    "FlyTap" -> flytap
+    "NorvegianAirlines" -> norvegianAirlines,
+    "Airberlin" -> airberlin,
+    "Aviasales" -> aviasales,
+    "SwissAirlines" -> swissairlines,
+    "FlyTap" -> flytap,
+    "CheapAir" -> cheapair
   )
   
 }
