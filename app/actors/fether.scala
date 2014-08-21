@@ -33,11 +33,10 @@ import play.api.libs.json._
 import play.api.libs.functional.syntax._
 import play.api.libs.json.Reads._
 
+import model.SearchResult
+
 case class StartSearch(tr:model.TravelRequest)
 
-class SearchResponse(tr:model.TravelRequest)
-case class SearchResult(tr:model.TravelRequest,ts:Seq[model.Ticket]) extends SearchResponse(tr)
-case class SearchError(tr:model.TravelRequest,e:Throwable) extends SearchResponse(tr)
 
 case class Refresh()
 case class Subscribe()

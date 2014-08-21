@@ -120,7 +120,11 @@ case class TravelRequest(
   override def toString = s"Tr($iataFrom->$iataTo)"
 }
 
-case class CacheRequest(service:String,tr:TravelRequest)
+
+
+class SearchResponse(tr:TravelRequest)
+case class SearchResult(tr:TravelRequest,ts:Seq[Ticket]) extends SearchResponse(tr)
+case class SearchError(tr:TravelRequest,e:Throwable) extends SearchResponse(tr)
 
 case class GeoPoint(lon:Float,lat:Float) {
   def distance(t:GeoPoint) = {

@@ -32,7 +32,7 @@ import model.FlightClass._
 import java.util.Date
 import java.text.SimpleDateFormat
 
-import model.{Gate,CacheRequest}
+import model.{Gate,CacheRequest,TravelRequest,SearchResult,Ticket}
 
 class GatesStorageActor extends Actor {
 
@@ -82,7 +82,8 @@ import com.mongodb.casbah.commons.conversions.scala._
 trait DBApi {
   val mongoClient:MongoClient
   val db:MongoDB
-  var colls:Map[String,MongoCollection]
+
+  val colls:scala.collection.mutable.Map[String,MongoCollection] = Map()
 
   implicit def tr2Mongo(tr:TravelRequest) = MongoDBObject(
     "iataFrom" -> tr.iataFrom,
@@ -96,22 +97,30 @@ trait DBApi {
     "flclass" -> tr.flclass
   )
 
-  def save(service:String,r:SearchResult) {
-    
-    val collection = colls.getOrElse(service,{
-      colls += service -> db(collection)
-    })
+  private def collection(service:String) = colls.getOrElse(service,{
+    val c = db(service)
+    colls += service -> c
+    c
+  })
 
-    cheapairCollection.update(
-      MongoDBObject("tr" -> tr)
+  def save(service:String,r:SearchResult) {
+    collection(service).update(
+      MongoDBObject("tr" -> r.tr),
       MongoDBObject(
         "added" -> LocalDateTime.now(),
-        "tr"    -> tr,
-        "ts"    -> ts
-      )
+        "tr"    -> r.tr,
+        "ts"    -> r.ts
+      ),
+      upsert = true
     )
   }
+
+  def get(service:String,tr:TravelRequest) = collection(service).findOne(MongoDBObject("tr" -> tr)).map(ret => SearchResult(tr,ret.getAs[Seq[Ticket]]("tr").get) )
+
 }
+
+case class CacheResult(service:String,r:SearchResult)
+case class CacheRequest(service:String,tr:TravelRequest)
 
 class CacheStorageActor extends Actor with DBApi {
   
@@ -119,25 +128,12 @@ class CacheStorageActor extends Actor with DBApi {
 
   val mongoClient:MongoClient = MongoClient("localhost", 27017)
   val db:MongoDB = mongoClient("airando2")
-  val cheapairCollection:MongoCollection = db("cheapair")
-
-
-  
 
   def receive = {
-    case CacheResult("cheapair",SearchResult(tr,ts)) => 
-      cheapairCollection.update(
-        MongoDBObject("tr" -> tr)
-        MongoDBObject(
-          "added" -> LocalDateTime.now(),
-          "tr"    -> tr,
-          "ts"    -> ts
-        )
-      )
-    case CacheRequest("cheapair",tr) => 
+    case CacheResult("cheapair",r) => save("cheapair",r)
+    case CacheRequest("cheapair",tr) =>
       sender ! cheapairCollection.findOne(tr).map({
-        ret => 
-        SearchResult(tr,Seq())
+        ret => get("cheapair",)
       })
   }
 }
