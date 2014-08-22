@@ -30,6 +30,7 @@ import scala.concurrent.duration._
 import java.text.SimpleDateFormat
 import scala.util.{Try, Success, Failure}
 
+import model.SearchResult
 
 class AviasalesParserSpec extends FunSuite {
   
@@ -62,6 +63,52 @@ class AviasalesParserSpec extends FunSuite {
 }
 
 
+class MongoSpec extends FunSuite with BeforeAndAfterAll {
+  import com.mongodb.casbah.Imports._
+  import org.joda.time.LocalDateTime
+  import com.mongodb.casbah.commons.conversions.scala._
+
+  val df:SimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+  implicit def str2Date(s:String) = df.parse(s)
+
+  override def beforeAll {
+    MongoClient("localhost", 27017).dropDatabase("airando-test")
+  }
+  override def afterAll {
+    MongoClient("localhost", 27017).dropDatabase("airando-test")
+  }
+
+  test("simpleops") {
+    val t = new actors.DBApi {
+      val mongoClient:MongoClient = MongoClient("localhost", 27017)
+      val db:MongoDB = mongoClient("airando-test")
+    }
+    t.save("aviasales",SearchResult(
+      model.TravelRequest("HEL","OSL",model.TravelType.OneWay,
+          "2015-03-21","2015-03-21",3,2,1,model.FlightClass.Economy),
+      Seq(
+        model.Ticket("sign",Seq(
+          model.Flight("HEL","BEL","AVV",0,"123","2015-03-21",Some("2015-03-21"),Some("AC"),0),
+          model.Flight("BEL","OSL","AVV",0,"123","2015-03-21",Some("2015-03-21"),Some("AC"),0)
+        ),Some(
+          Seq(
+            model.Flight("OSL","BEL","AVV",0,"123","2015-03-21",Some("2015-03-21"),Some("AC"),0),
+            model.Flight("BEL","HEL","AVV",0,"123","2015-03-21",Some("2015-03-21"),Some("AC"),0)
+          )
+        ),Map("123"->123),Map("123"->"123")),
+        model.Ticket("sign",Seq(),None,Map("123"->123),Map("123"->"123"))
+      )
+    ))
+    val tr = model.TravelRequest("HEL","OSL",model.TravelType.OneWay,
+          "2015-03-21","2015-03-21",3,2,1,model.FlightClass.Economy)
+    val r1 = t.get("aviasales",tr)
+    assert(! r1.isEmpty)
+    val r2 = t.get("aviasales",tr,-1)
+    assert(r2.isEmpty)
+
+    //t.mongoClient.dropDatabase("airando-test")
+  }
+}
 
 
 class AVSParserSpecLive extends FunSuite with ScalaFutures {
@@ -146,7 +193,7 @@ class SwissAirlinesSpec extends BaseActorTester
     within (200 seconds) {
       fetcher ! p1
       expectMsgPF() {
-        case actors.SearchResult(_,tickets) => 
+        case SearchResult(_,tickets) => 
           assert ( tickets.length ==  0 ) 
       }
     }
@@ -158,7 +205,7 @@ class SwissAirlinesSpec extends BaseActorTester
     within (200 seconds) {
       fetcher ! p2
       expectMsgPF() {
-        case actors.SearchResult(_,tickets) => 
+        case SearchResult(_,tickets) => 
           assert ( tickets.length !=  0 ) 
           val mt = tickets.minBy(_.minPrice) 
           assert( mt.minPrice == 545.0 )
@@ -170,7 +217,7 @@ class SwissAirlinesSpec extends BaseActorTester
     within (200 seconds) {
       fetcher ! p3
       expectMsgPF() {
-        case actors.SearchResult(_,tickets) => 
+        case SearchResult(_,tickets) => 
           assert ( tickets.length !=  0 ) 
           val mt = tickets.minBy(_.minPrice) 
           assert( mt.minPrice == 601.0 )
@@ -195,7 +242,7 @@ class FlyTapSpec extends BaseActorTester
       fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.Return,
           "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
       expectMsgPF() {
-        case actors.SearchResult(_,tickets) => 
+        case SearchResult(_,tickets) => 
           assert ( tickets.length !=  0 ) 
           val mt = tickets.minBy(_.minPrice) 
           assert( mt.minPrice == 534.52f )
@@ -208,7 +255,7 @@ class FlyTapSpec extends BaseActorTester
       fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.OneWay,
           "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
       expectMsgPF() {
-        case actors.SearchResult(_,tickets) => 
+        case SearchResult(_,tickets) => 
           assert ( tickets.length !=  0 ) 
           val mt = tickets.minBy(_.minPrice) 
           assert( mt.minPrice == 304.04f )
@@ -221,7 +268,7 @@ class FlyTapSpec extends BaseActorTester
       fetcher ! actors.StartSearch(model.TravelRequest("SVQ","HAM",model.TravelType.OneWay,
           "2015-03-23","2015-03-23",1,0,0,model.FlightClass.Economy))
       expectMsgPF() {
-        case actors.SearchResult(_,tickets) => 
+        case SearchResult(_,tickets) => 
           assert ( tickets.length !=  0 ) 
           val mt = tickets.minBy(_.minPrice) 
           assert( mt.minPrice == 258.69f )
@@ -245,7 +292,7 @@ class CheapAirSpec extends BaseActorTester
       fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.Return,
           "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
       expectMsgPF() {
-        case actors.SearchResult(_,tickets) => 
+        case SearchResult(_,tickets) => 
           assert ( tickets.length !=  0 ) 
           val mt = tickets.minBy(_.minPrice) 
           assert( mt.minPrice == 507.0f )
@@ -261,7 +308,7 @@ class CheapAirSpec extends BaseActorTester
     within (60 seconds) {
       fetcher ! p1
       expectMsgPF() {
-        case actors.SearchResult(_,tickets) => 
+        case SearchResult(_,tickets) => 
           assert ( tickets.length !=  0 ) 
           /*for ( t <- tickets ) {
             println(t)

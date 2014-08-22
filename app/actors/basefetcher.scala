@@ -1,10 +1,14 @@
 package actors
-import akka.actor.{Actor,Cancellable}
+import akka.actor.{Actor,Cancellable,Identify,ActorIdentity,Props}
 import scala.concurrent.{Future,Promise}
 
 import play.api.{Logger,Play}
 
+import scala.concurrent.Await
+import akka.pattern.ask
+import akka.util.Timeout
 
+//import akka.actor.{,ActorSystem,ActorRef,Cancellable}
 
 class PhantomInitException(msg: String) extends RuntimeException(msg)
 class PhantomProcessException(msg: String) extends RuntimeException(msg)  
@@ -70,7 +74,19 @@ abstract class BaseFetcherActor extends Actor with WithLogger {
 
   var pid = 0 
 
-  
+  val cacheActor = {
+    implicit val timeout = Timeout(1 seconds)
+    val myFutureStuff = system.actorSelection(s"akka://application/user/CacheStorageActor")
+    val aid:ActorIdentity = Await.result((
+      myFutureStuff ? Identify(1)).mapTo[ActorIdentity],
+      0.1 seconds)
+    aid.ref match {
+      case Some(cacher) => 
+        cacher
+      case None => 
+        system.actorOf(Props[actors.CacheStorageActor],"CacheStorageActor")
+    }
+  }
 
   override def preStart() {
     logger.info("Started")
@@ -118,5 +134,5 @@ abstract class BaseFetcherActor extends Actor with WithLogger {
   def testOn(str:String)(f: => Boolean) {
     if (! f )  throw new ParseException(str)
   }
-  
+
 }

@@ -13,6 +13,7 @@ import model.FlightClass._
 import scala.concurrent.duration._
 
 import org.joda.time.DateTime
+import model.SearchResult
 
 case class NRFlight(
   iataFrom: String,

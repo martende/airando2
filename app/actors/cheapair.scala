@@ -16,6 +16,7 @@ import org.joda.time.DateTime
 
 import actors.PhantomExecutor.{Selector,Page}
 import utils.Utils2.withClose
+import model.SearchResult
 
 object CheapAir {
   val ID = "CHPA"

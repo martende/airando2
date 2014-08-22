@@ -16,6 +16,7 @@ import org.joda.time.DateTime
 
 import actors.PhantomExecutor.Selector
 import utils.Utils2.withClose
+import model.SearchResult
 
 class SwissAirlines(maxRepeats:Int=1) extends BaseFetcherActor  {
   var idd = 0

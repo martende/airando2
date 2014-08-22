@@ -29,6 +29,7 @@ import scala.concurrent.duration._
 
 import java.text.SimpleDateFormat
 import scala.util.{Try, Success, Failure}
+import model.SearchResult
 
 
 
@@ -123,7 +124,7 @@ class AirberlinSpec (_system: ActorSystem) extends TestKit(_system)
           df.parse("2014-10-21"),df.parse("2014-10-21"),3,2,1,model.FlightClass.Economy))
 
         expectMsgPF() {
-          case actors.SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
+          case SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
             Vector(
               model.Flight("ORY","CPH","NR",_,"DY3635",_,None,None,0)
             ),
@@ -131,7 +132,7 @@ class AirberlinSpec (_system: ActorSystem) extends TestKit(_system)
             println("Result" , tkts)
             assert(prices == Map("NR"->307.9f))
             assert(order_urls == Map("NR" -> "NR:201503071105ORY:201503071515CPH:201503072020FLL"))
-          case actors.SearchResult(tr,tkts) => 
+          case SearchResult(tr,tkts) => 
             println("Result2" , tkts)
             //assert(tkts == List(
             //  Ticket(",
@@ -190,7 +191,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
           new java.util.Date(),new java.util.Date(),1,1,0,model.FlightClass.Economy))
 
         expectMsgPF() {
-          case actors.SearchResult(tr,_) => 
+ase actors.SearchResult(tr,_) => 
           //case x => println(x)
         }
       }
@@ -207,7 +208,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
           df.parse("2015-03-07"),df.parse("2015-03-07"),1,1,0,model.FlightClass.Economy))
 
         expectMsgPF() {
-          case actors.SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
+          case SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
             Vector(
               model.Flight("ORY","CPH","NR",_,"DY3635",_,None,None,0)
             ),
@@ -215,7 +216,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
             println("Result" , tkts)
             assert(prices == Map("NR"->307.9f))
             assert(order_urls == Map("NR" -> "NR:201503071105ORY:201503071515CPH:201503072020FLL"))
-          case actors.SearchResult(tr,tkts) => 
+          case SearchResult(tr,tkts) => 
             println("Result2" , tkts)
             //assert(tkts == List(
             //  Ticket(",
@@ -235,7 +236,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
           df.parse("2015-03-07"),df.parse("2015-03-07"),1,1,0,model.FlightClass.Economy))
 
         expectMsgPF() {
-          case actors.SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
+          case SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
             Vector(
               model.Flight("ORY","CPH","NR",_,"DY3635",_,None,None,0)
             ),
@@ -243,7 +244,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
             println("Result" , tkts)
             assert(prices == Map("NR"->307.9f))
             assert(order_urls == Map("NR" -> "NR:201503071105ORY:201503071515CPH:201503072020FLL"))
-          case actors.SearchResult(tr,tkts) => 
+          case SearchResult(tr,tkts) => 
             println("Result2" , tkts)
             //assert(tkts == List(
             //  Ticket(",
@@ -265,7 +266,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
           df.parse("2014-10-21"),df.parse("2014-10-21"),1,1,0,model.FlightClass.Economy))
 
         expectMsgPF() {
-          case actors.SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
+          case SearchResult(tr,tkts @ List(model.Ticket("201503071105ORY:201503071515CPH:201503072020FLL",
             Vector(
               model.Flight("ORY","CPH","NR",_,"DY3635",_,None,None,0)
             ),
@@ -273,7 +274,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
             println("Result" , tkts)
             assert(prices == Map("NR"->307.9f))
             assert(order_urls == Map("NR" -> "NR:201503071105ORY:201503071515CPH:201503072020FLL"))
-          case actors.SearchResult(tr,tkts) => 
+          case SearchResult(tr,tkts) => 
             println("Result2" , tkts)
             //assert(tkts == List(
             //  Ticket(",
@@ -294,7 +295,7 @@ class NorvegianAirlinesSpec (_system: ActorSystem) extends TestKit(_system)
           df.parse("2014-08-02"),df.parse("2014-08-03"),1,1,0,model.FlightClass.Economy))
 
         expectMsgPF() {
-          case actors.SearchResult(tr,tkts) => 
+          case SearchResult(tr,tkts) => 
             assert(tkts.length == 0)
         }
       } 

@@ -16,6 +16,7 @@ import org.joda.time.DateTime
 
 import actors.PhantomExecutor.Selector
 import utils.Utils2.withClose
+import model.SearchResult
 
 class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
   var idd = 0
@@ -54,8 +55,10 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
   //var curSender:ActorRef = null
   //var curRequest:model.TravelRequest = null
   
+
   def receive = {
     case StartSearch(tr) => 
+
       processSearch(sender,tr)
   }
 
