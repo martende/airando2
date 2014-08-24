@@ -22,8 +22,8 @@ object CheapAir {
   val ID = "CHPA"
 }
 
-class CheapAir(maxRepeats:Int=1) extends BaseFetcherActor  {
-
+class CheapAir(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
+  val ID = CheapAir.ID
   var idd = 0
 
   case class FlightInfo(trel:Selector,points:Seq[model.Flight]) {
@@ -39,7 +39,7 @@ class CheapAir(maxRepeats:Int=1) extends BaseFetcherActor  {
   case class PriceInfo(flclass:FlightClass,priceEl:Selector,price:Float) {
     //val flclass = if ( classStr == "discount" || classStr == "basic" || classStr == "classic") Economy else Business
   }
-
+/*
   case class ABFlight(
     iataFrom: String,
     iataTo: String,
@@ -48,24 +48,16 @@ class CheapAir(maxRepeats:Int=1) extends BaseFetcherActor  {
     flnum:String,
     avline:String
   )
-
-  case class ABTicket(val ticket:model.Ticket,val flclass:FlightClass,val price:Float)
+*/
+  //case class ABTicket(val ticket:model.Ticket,val flclass:FlightClass,val price:Float)
 
   import context.dispatcher
   import context.become
 
   val logger = Logger("CheapAir")
-
-  var rqIdx = 0
-  //var curSender:ActorRef = null
-  //var curRequest:model.TravelRequest = null
   
-  def receive = {
-    case StartSearch(tr) => 
-      processSearch(sender,tr)
-  }
-
-
+  
+/*
   def complete(sender:ActorRef,tr:model.TravelRequest,tickets:Seq[ABTicket] = Seq() ) = {
     logger.info(s"Search $tr: Completed: ${tickets.length} tickets found")
 
@@ -100,7 +92,7 @@ class CheapAir(maxRepeats:Int=1) extends BaseFetcherActor  {
       } else doRealSearch(sender,tr)
     } else doRealSearch(sender,tr)
   }
-
+*/
   def asPrice(d:String) = {
     val r = """\$\d+(\.\d{1,2})?""".r
     r findFirstIn d.replace(",","").replace("\n","") match {

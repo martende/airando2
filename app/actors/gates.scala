@@ -38,7 +38,7 @@ class GatesStorageActor extends Actor {
 
     var gatesMap:Map[String,Gate] = Map(
       "DY"->Gate("DY","eur","NorvegianAirlines"),
-      "AB"->Gate("AB","eur","Airberlin"),
+      actors.CheapAir.ID->Gate(actors.CheapAir.ID,"eur","Airberlin"),
       "LX"->Gate("LX","eur","Swiss"),
       "TP"->Gate("TP","eur","TAP Portugal"),
       actors.CheapAir.ID->Gate(actors.CheapAir.ID,"usd","CheapAir")
@@ -76,7 +76,7 @@ class CurrenciesStorageActor extends Actor {
 }
 
 import com.mongodb.casbah.Imports._
-import org.joda.time.LocalDateTime
+import org.joda.time.DateTime
 import com.mongodb.casbah.commons.conversions.scala._
 
 trait DBApi {
@@ -95,6 +95,7 @@ trait DBApi {
 
   private def fl2mongo(fl:Flight) = MongoDBObject(
     "iataFrom" -> fl.iataFrom, 
+    "iataTo" -> fl.iataTo, 
     "airline" -> fl.airline,
     "duration" -> fl.duration,
     "flnum" -> fl.flnum,
@@ -116,11 +117,34 @@ trait DBApi {
     "flclass" -> tr.flclass.toString
   )
 
+  def getRequired[T: Manifest](k:String)(implicit d:BasicDBObject):T = 
+    d.getAs[T](k).getOrElse(throw new Exception(s"getRequired:$k data:$d"))
+
+  private def mongo2fl(d:BasicDBObject) = {
+    implicit val _d = d
+
+    val now = DateTime.now()
+    val a = MongoDBObject("d"->now)
+    
+    Flight(
+      d.getAs[String]("iataFrom").get,
+      getRequired[String]("iataTo"),
+      //d.getAs[String]("iataTo").getOrElse(throw new Exception(s"AAAA $d")),
+      d.getAs[String]("airline").get,
+      d.getAs[Int]("duration").get,
+      d.getAs[String]("flnum").get,
+      getRequired[DateTime]("departure").toDate,
+      d.getAs[DateTime]("arrival").map(_.toDate),
+      d.getAs[String]("aircraft"),
+      d.getAs[Int]("delay").get
+    )
+  } 
+
   def save(service:String,r:SearchResult) {
     collection(service).update(
       "tr" $eq tr2mongo(r.tr),
       MongoDBObject(
-        "added" -> LocalDateTime.now(),
+        "added" -> DateTime.now(),
         "tr"    -> tr2mongo(r.tr),
         "ts"    -> r.ts.map({
           tkt => MongoDBObject(
@@ -142,25 +166,37 @@ trait DBApi {
   def get(service:String,tr:TravelRequest,ttl:Int=86400) = collection(service).findOne(
       $and ( "tr" $eq tr2mongo(tr) , 
         MongoDBObject( "added" -> 
-          MongoDBObject("$gt" -> LocalDateTime.now().minusSeconds(ttl) )
+          MongoDBObject("$gt" -> DateTime.now().minusSeconds(ttl) )
         )
       )
-    ).map(ret => SearchResult(tr,ret.getAs[Seq[Ticket]]("ts").get) )
+    ).map(ret => SearchResult(tr,ret.getAs[Seq[BasicDBObject]]("ts").get.map {
+      d => Ticket(
+        d.getAs[String]("sign").get,
+        d.getAs[Seq[BasicDBObject]]("direct_flights").get.map(mongo2fl),
+        d.getAs[Seq[BasicDBObject]]("return_flights").map(x => x.map(mongo2fl)),
+        d.getAs[Map[String,Double]]("native_prices").get.map( x => x._1 -> x._2.toFloat ),
+        d.getAs[Map[String,String]]("order_urls").get
+      )
+    }) )
 
 }
 
 case class CacheResult(service:String,r:SearchResult)
 case class CacheRequest(service:String,tr:TravelRequest)
 
-class CacheStorageActor extends Actor with DBApi {
+class CacheStorageActor extends Actor with DBApi with akka.actor.ActorLogging {
   
   
   val mongoClient:MongoClient = MongoClient("localhost", 27017)
   val db:MongoDB = mongoClient("airando2")
 
   def receive = {
-    case CacheResult("cheapair",r) => save("cheapair",r)
-    case CacheRequest("cheapair",tr) => sender ! get("cheapair",tr)
+    case CacheResult(id,r) => 
+      save(id,r)
+    case CacheRequest(id,tr) => 
+      val ret = get(id,tr)
+      sender ! ret
+    case x => log.error("Unkwnown message")
   }
 
 }

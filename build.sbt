@@ -16,4 +16,6 @@ libraryDependencies += "joda-time" % "joda-time" % "2.0"
 
 libraryDependencies += "org.mongodb" %% "casbah" % "2.7.3"
 
+// testOptions in Test := Seq(Tests.Filter(s => s.startsWith("Local")))
+
 play.Project.playScalaSettings

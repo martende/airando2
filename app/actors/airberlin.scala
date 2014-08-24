@@ -15,76 +15,24 @@ import scala.concurrent.duration._
 import org.joda.time.DateTime
 import model.SearchResult
 
-case class ABFlight(
-  iataFrom: String,
-  iataTo: String,
-  depdate: java.util.Date,
-  avldate: java.util.Date,
-  flnum:String,
-  avline:String
-)
-case class ABTicket(val ticket:model.Ticket,val flclass:FlightClass,val price:Float)
+import actors.PhantomExecutor.Selector
 
-class Airberlin extends BaseFetcherActor  {
+
+object Airberlin {
+  val ID = "AB"
+}
+
+class Airberlin(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
   import context.dispatcher
-  import context.become
 
+  val ID = Airberlin.ID
   val logger = Logger("Airberlin")
-
-  var rqIdx = 0
-  var curSender:ActorRef = null
-  var curRequest:model.TravelRequest = null
-  
-  def receive = {
-    case StartSearch(tr) => 
-      processSearch(sender,tr)
-  }
-
-
-  def complete(tickets:Seq[ABTicket] = List() ) = {
-    logger.info(s"Search $curRequest: Completed: ${tickets.length} tickets found")
-
-    val tickets2send = tickets.groupBy(_.ticket.tuid).map {
-      t => 
-      val t0 = if ( curRequest.flclass ==  Business)
-        t._2.filter( _.flclass == Business ).minBy(_.price)  
-      else 
-        t._2.minBy(_.price)
-
-      t0.ticket
-
-    }.toSeq
-
-    curSender ! SearchResult(curRequest,tickets2send)
-
-    curSender = null
-  }
-
-	def processSearch(_sender:ActorRef,tr:model.TravelRequest) = {
-		rqIdx+=1
-    curSender = _sender 
-    curRequest = tr
-
-    logger.info(s"StartSearch:${rqIdx} ${tr}")
-
-    //become(waitAnswer(_sender,tr))
-    if ( availIatas != null ) {
-      if (! availIatas.contains(tr.iataFrom)) {
-        logger.warn(s"No routes for iataFrom:${tr.iataFrom} availible")
-        complete()
-      } else if ( ! availIatas.contains(tr.iataTo)) {
-        logger.warn(s"No routes for iataTo:${tr.iataTo} availible")
-        complete()
-      } else doRealSearch(tr)
-    } else doRealSearch(tr)
-  }
 
   val pageLoadTimeout = 2 seconds
   val pageResultTimeout = 10 seconds
 
-  def doRealSearch(tr:model.TravelRequest) {
-    import actors.PhantomExecutor
-    class NotAvailibleDirecttion extends Throwable;
+  def doRealSearch2(tr:model.TravelRequest) = {
+
     val dformatter = new java.text.SimpleDateFormat("dd/MM/yyyy");
     val src = tr.iataFrom
     val dst = tr.iataTo
@@ -97,11 +45,10 @@ class Airberlin extends BaseFetcherActor  {
     } catch {
       case ex:Throwable => 
         logger.error( s"Parsing: $tr failed - fetching failed $ex" )
-        self forward StartSearch(tr)
         throw ex
     }
 
-    try {
+    catchFetching(p,tr) {
       
     	// wait for autocomplete selectors
 
@@ -268,7 +215,7 @@ class Airberlin extends BaseFetcherActor  {
             case Some(avline) => 
               val tkt = ABTicket( model.Ticket(tuid,points.map {
                   fl => model.Flight(fl.iataFrom,fl.iataTo,avline,0,fl.flnum,fl.depdate,Some(fl.avldate),None,0)
-                }.toSeq,None,Map("AB"->pr._2),Map("AB" -> ("AB:" + tuid ) )) ,
+                }.toSeq,None,Map(ID->pr._2),Map(ID -> (ID +":" + tuid ) )) ,
                 flclass ,
                 pr._2
               )
@@ -279,32 +226,12 @@ class Airberlin extends BaseFetcherActor  {
         tkts.flatten
 
       }
-
-      val fl = fetchedTickets.flatten.toSeq
         
       p.render("phantomjs/images/airberlin1.png")
+      p.close
       
-      complete(fl)
+      fetchedTickets.flatten.toSeq
       
-		} catch {
-      case ex:NoFlightsException => 
-        logger.info(s"Searching $tr flights are not availible" )
-        p.render("phantomjs/images/airberlin-warn.png")
-        p.close
-        complete()
-
-      case ex:NotAvailibleDirecttion =>
-        logger.info( s"Parsing: $tr no such direction")
-        p.render("phantomjs/images/airberlin-error.png")
-        p.close
-        complete()
-
-      case ex:Throwable => 
-        logger.error( s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n") )
-        p.render("phantomjs/images/airberlin-error.png")
-        p.close
-        //self ! Complete()
-        throw ex
 		}
 
 	}  

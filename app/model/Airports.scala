@@ -46,7 +46,7 @@ case class Ticket(
 ) {
   val dformatter = new java.text.SimpleDateFormat("yyyyMMddHHmm");
   
-  def minPrice = native_prices.values.min
+  def minPrice = native_prices.values.min.toFloat
 
   def p2tuid(points:Seq[model.Flight]) = {
     val parts = points.toSeq.map {

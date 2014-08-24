@@ -14,7 +14,7 @@ import scala.concurrent.duration._
 
 import org.joda.time.DateTime
 import model.SearchResult
-
+/*
 case class NRFlight(
   iataFrom: String,
   iataTo: String,
@@ -25,7 +25,8 @@ case class NRFlight(
 ) {
   def withArrivalDate(d:java.util.Date) = NRFlight(iataFrom,iataTo,depdate,Some(d),flclassStr,flnum)
 }
-
+*/
+/*
 case class NRTicket(
   price: Float,
 //  flnum: String,
@@ -42,7 +43,8 @@ case class NRTicket(
     parts.mkString(":")
   }
 }
-
+*/
+/*
 case class NRRequest(
   iataFrom:String,
   iataTo:String,
@@ -51,42 +53,25 @@ case class NRRequest(
   infants:Int,
   tickets: Seq[NRTicket]
 )
+*/
+object NorvegianAirlines {
+  val ID = "DY"
+}
 
-
-class NorvegianAirlines extends BaseFetcherActor  {
+class NorvegianAirlines(maxRepeats:Int=1,noCache:Boolean=false) extends SingleFetcherActor(maxRepeats,noCache)  {
   import context.dispatcher
   import context.become
 
   val logger = Logger("NorvegianAirlines")
+  val ID = NorvegianAirlines.ID
 
   var srcIatas:Set[String] = null
   var dstIatas:Set[String] = null
-
+/*
   case class UpdateSrcIatas(v:Set[String])
   case class UpdateDstIatas(v:Set[String])
   case class AddTickets(v:Seq[NRTicket])
   case class Complete()
-
-  var rqIdx = 0
-  /*override def preStart() {
-    logger.info("Started")
-  }
-  
-  override def postStop() = {
-    logger.info("postStop") 
-  }
-
-  override def preRestart(reason:Throwable,message:Option[Any]) {
-    logger.info(s"ReStarted $reason $message")
-    
-    message match {
-      case Some(x) => self forward x
-      case None => 
-    }
-
-  }
-
-  */
 
   def waitAnswer(sender:ActorRef,currentRequest:model.TravelRequest ):PartialFunction[Any, Unit] = {
     var tickets = Array[NRTicket]()
@@ -109,8 +94,8 @@ class NorvegianAirlines extends BaseFetcherActor  {
           t._2.minBy(_.price)
       }.map {
         tkt:NRTicket => model.Ticket(tkt.tuid,tkt.direct_flights.map {
-          fl => model.Flight(fl.iataFrom,fl.iataTo,"DY",0,fl.flnum,fl.depdate,fl.avldate,None,0)
-        },None,Map("DY"->tkt.price),Map("DY" -> ("DY:"+tkt.tuid)) )
+          fl => model.Flight(fl.iataFrom,fl.iataTo,ID,0,fl.flnum,fl.depdate,fl.avldate,None,0)
+        },None,Map(ID->tkt.price),Map(ID -> (ID + ":"+tkt.tuid)) )
       }.toSeq
 
       sender ! SearchResult(currentRequest,tickets2send)
@@ -121,9 +106,10 @@ class NorvegianAirlines extends BaseFetcherActor  {
     _waiter
   }
   
-  
+  */
+
   def iataMapper(iata:String) = if (iata == "BER" ) "BERALL" else iata
-  def receive = {
+  /*def receive = {
     case StartSearch(tr) => 
       processSearch(sender,tr)
     
@@ -140,13 +126,16 @@ class NorvegianAirlines extends BaseFetcherActor  {
         logger.warn(s"No routes for iataTo:${tr.iataTo} availible")
         self ! Complete()
     } else doRealSearch(tr)
-  }
+  }*/
 
   val pageLoadimeout = 2 seconds
   val pageResultTimeout = 5 seconds
-  def doRealSearch(tr:model.TravelRequest) {
+  
+  def withArrivalDate(s:ABFlight,d:java.util.Date) = 
+    ABFlight(s.iataFrom,s.iataTo,s.depdate,d/*,s.flclassStr*/,s.flnum,s.avline)
+
+  def doRealSearch2(tr:model.TravelRequest):Seq[ABTicket] = {
     import actors.PhantomExecutor
-    class NotAvailibleDirecttion extends Throwable;
     val dformatter = new java.text.SimpleDateFormat("yyyy-MM-dd");
     val src = iataMapper(tr.iataFrom)
     val dst = iataMapper(tr.iataTo)
@@ -168,7 +157,7 @@ class NorvegianAirlines extends BaseFetcherActor  {
         throw ex
     }
     
-    try {
+    catchFetching(p,tr) {
       /*
         import java.util.Random
         var random = new Random
@@ -303,7 +292,9 @@ class NorvegianAirlines extends BaseFetcherActor  {
         case class FlPoint(directions:Pair[String,String],
           depdate:java.util.Date,flclass:String,flnum:String)
 
-        val fetchedTickets:Traversable[NRTicket] = for (priceEl <- p.$("#avaday-outbound-result .avadaytable tr.rowinfo1 input[type=radio]")) yield {
+        val tuidDateFormatter = new java.text.SimpleDateFormat("yyyyMMddHHmm");
+
+        val fetchedTickets:Traversable[ABTicket] = for (priceEl <- p.$("#avaday-outbound-result .avadaytable tr.rowinfo1 input[type=radio]")) yield {
           val td = priceEl.parentNode.parentNode
           val prctd = td.nextSibling
           val tr = td.parentNode
@@ -336,7 +327,7 @@ class NorvegianAirlines extends BaseFetcherActor  {
             val depdate =  asDate(trs(i+1).innerText)
             val flclass =  asFlClass(trs(i+2).innerText.toLowerCase)
             val flnum =  asFlNum(trs(i+2).innerText)
-            NRFlight(directions._1,directions._2,depdate,None,flclass,flnum)
+            ABFlight(directions._1,directions._2,depdate,null/*,flclass*/,flnum,ID)
           }
 
           testOn("Points not found")(points.length > 0)
@@ -345,33 +336,28 @@ class NorvegianAirlines extends BaseFetcherActor  {
           val depDate = points(0).depdate
           val avlDate = (new DateTime(depDate)).withHourOfDay(avl.h).withMinuteOfHour(avl.m).plusDays(avl.daysAdd).toDate()
           
-          val points2 = points.updated(points.length-1,points(points.length-1).withArrivalDate(avlDate))
+          val points2 = points.updated(points.length-1,withArrivalDate(points(points.length-1),avlDate))
+          
+          val tuid = {
+            val parts = points2.toSeq.map {
+              f => tuidDateFormatter.format(f.depdate) + f.iataFrom 
+            } :+ (tuidDateFormatter.format(points2.last.avldate) + points2.last.iataTo)
+            parts.mkString(":")
+          }
 
-          NRTicket(price,depDate,avlDate,points2,flclass)
+          ABTicket( model.Ticket(tuid,points2.map {
+              fl => model.Flight(fl.iataFrom,fl.iataTo,ID,0,fl.flnum,fl.depdate,if ( fl.avldate != null ) Some(fl.avldate) else None ,None,0)
+            }.toSeq,None,Map(ID->price),Map(ID -> (ID +":" + tuid ) )) ,
+            flclass ,
+            price
+          )
+
         }
         
-        self ! AddTickets(fetchedTickets.toSeq)
-
-        self ! Complete()
         p.render("phantomjs/images/norvegian1.png")      
-    } catch {
-        case ex:NoFlightsException => 
-          logger.info(s"Searching $tr flights are not availible" )
-          p.render("phantomjs/images/norvegian-warn.png")
-          p.close
-          self ! Complete()
-        case ex:NotAvailibleDirecttion =>
-          p.close
-          logger.info( s"Parsing: $tr bo such direction")
-          self ! Complete()
 
-        case ex:Throwable => 
-          logger.error( s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n") )
-          p.render("phantomjs/images/norvegian-error.png")
-          p.close
-          //self ! Complete()
-          throw ex
-    } 
+        fetchedTickets.toSeq
+    }
     
   }
 

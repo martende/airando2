@@ -8,7 +8,12 @@ import scala.concurrent.Await
 import akka.pattern.ask
 import akka.util.Timeout
 
-//import akka.actor.{,ActorSystem,ActorRef,Cancellable}
+import model.{SearchResult,TravelRequest}
+import model.FlightClass._
+
+import actors.PhantomExecutor.Page
+
+import akka.actor.{ActorRef}
 
 class PhantomInitException(msg: String) extends RuntimeException(msg)
 class PhantomProcessException(msg: String) extends RuntimeException(msg)  
@@ -17,7 +22,19 @@ class PhantomProcessException(msg: String) extends RuntimeException(msg)
 class NoFlightsException() extends RuntimeException("NOFLIGHTS")  
 class ParseException(s:String) extends RuntimeException(s)  
 
-trait Caching {
+
+trait CachingAPI {
+  def md5(text: String) : String = java.security.MessageDigest.getInstance("MD5").digest(text.getBytes()).map(0xFF & _).map { "%02x".format(_) }.foldLeft(""){_ + _}
+  def saveCache(f:String,responseBody:String)
+  def getFromCache(f:String):Option[String]
+}
+
+trait NoCaching extends CachingAPI {
+  def saveCache(f:String,responseBody:String) {}
+  def getFromCache(f:String):Option[String] = None
+}
+
+trait FileCaching extends CachingAPI {
   self:WithLogger => 
 
   import play.api.Play.current
@@ -27,9 +44,10 @@ trait Caching {
       throw play.api.UnexpectedException(Some("cache-dir not configured"))  
     })
 
-  def md5(text: String) : String = java.security.MessageDigest.getInstance("MD5").digest(text.getBytes()).map(0xFF & _).map { "%02x".format(_) }.foldLeft(""){_ + _}
-  def writeFile(fname:String,content:String) = Some(new java.io.PrintWriter(fname)).foreach{p => p.write(content); p.close}
-  def saveCache(f:String,responseBody:String) = {
+  def writeFile(fname:String,content:String) {
+    Some(new java.io.PrintWriter(fname)).foreach{p => p.write(content); p.close}
+  }
+  def saveCache(f:String,responseBody:String) {
       val d1 = f.substring(0,2)
       val d2 = f.substring(2,4)
       val d3 = f.substring(4)
@@ -62,7 +80,8 @@ trait WithLogger {
   val logger:Logger
 }
 
-abstract class BaseFetcherActor extends Actor with WithLogger {
+abstract class BaseFetcherActor(maxRepeats:Int,noCache:Boolean=false) extends Actor with WithLogger {
+  val ID:String 
 
   class NotAvailibleDirecttion extends Throwable;
 
@@ -72,9 +91,9 @@ abstract class BaseFetcherActor extends Actor with WithLogger {
   import context.dispatcher
   import scala.concurrent.duration._
 
-  var pid = 0 
-
-  val cacheActor = {
+  var rqIdx = 0
+  
+  val dbCacheActor = {
     implicit val timeout = Timeout(1 seconds)
     val myFutureStuff = system.actorSelection(s"akka://application/user/CacheStorageActor")
     val aid:ActorIdentity = Await.result((
@@ -86,6 +105,17 @@ abstract class BaseFetcherActor extends Actor with WithLogger {
       case None => 
         system.actorOf(Props[actors.CacheStorageActor],"CacheStorageActor")
     }
+  }
+
+  def saveDBCache(r:SearchResult) = if (!noCache) {
+    dbCacheActor ! CacheResult(ID,r)
+  }
+
+  def checkDBCache(tr:TravelRequest) = if (noCache) None else {
+    implicit val timeout = Timeout(1 seconds)
+    Await.result(
+      (dbCacheActor ? CacheRequest(ID,tr)).mapTo[Option[SearchResult]]
+    ,1 seconds)
   }
 
   override def preStart() {
@@ -115,6 +145,58 @@ abstract class BaseFetcherActor extends Actor with WithLogger {
     availIatas = v
   }
 
+  def processSearch(sender:ActorRef,tr:model.TravelRequest)(x: =>Unit) = {
+    rqIdx+=1
+    
+    logger.info(s"StartSearch:${rqIdx} ${tr}")
+
+    //become(waitAnswer(sender,tr))
+    val stopSearch = if ( availIatas != null ) {
+      if (! availIatas.contains(tr.iataFrom)) {
+        logger.warn(s"No routes for iataFrom:${tr.iataFrom} availible")
+        true
+      } else if ( ! availIatas.contains(tr.iataTo)) {
+        logger.warn(s"No routes for iataTo:${tr.iataTo} availible")
+        true
+      } else false
+    } else false
+
+    if ( stopSearch ) completeEmpty(sender,tr) else checkDBCache(tr) match {
+      case Some(cacheret) => 
+        logger.debug(s"Load from cache:${rqIdx} ${tr}")
+        sender ! SearchResult(tr,cacheret.ts)
+      case None => withNRepeats(sender,tr)(x)
+    }
+
+  }
+
+  def completeEmpty(sender:ActorRef,tr:model.TravelRequest) = sender ! SearchResult(tr,Seq())
+
+
+  def withNRepeats(sender:ActorRef,tr:model.TravelRequest,_maxRepeats:Int = maxRepeats )(x : =>Unit ) {
+
+    try {
+      /*
+      val t = doRealSearch2( tr )
+
+      complete(sender,tr,t)
+      */
+      x
+    } catch {
+      
+      case ex:Throwable => 
+        if ( _maxRepeats > 1 ) {
+          logger.warn(s"Parsing: $tr failed. Try ${maxRepeats - _maxRepeats}/$maxRepeats times exception: $ex\n" + ex.getStackTrace().mkString("\n"))
+          withNRepeats(sender,tr,_maxRepeats-1)(x)
+        } else {
+          logger.error(s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n"))
+          sender ! akka.actor.Status.Failure(ex)
+        }
+    }
+
+  }
+
+  // Util
 
   def waitFor[T](timeout:Duration,what:String)(awaitable: scala.concurrent.Awaitable[T]) = {
     val t0 = System.nanoTime()
@@ -134,5 +216,77 @@ abstract class BaseFetcherActor extends Actor with WithLogger {
   def testOn(str:String)(f: => Boolean) {
     if (! f )  throw new ParseException(str)
   }
+
+  def catchFetching[T](p:Page,tr:model.TravelRequest)(x : => Seq[T]):Seq[T] = {
+    try {
+      x
+    } catch {
+      case ex:NoFlightsException => 
+        logger.info(s"Searching $tr flights are not availible" )
+        p.render(s"phantomjs/images/${this.getClass.getName}-warn.png")
+        p.close
+        Seq()
+
+      case ex:NotAvailibleDirecttion =>
+        logger.info( s"Parsing: $tr no such direction")
+        p.render(s"phantomjs/images/${this.getClass.getName}-error.png")
+        p.close
+        Seq()
+
+      case ex:Throwable => 
+        logger.error( s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n") )
+        p.render(s"phantomjs/images/${this.getClass.getName}-error.png")
+        p.close
+        //self ! Complete()
+        throw ex
+    }
+  }
+}
+
+
+
+abstract class SingleFetcherActor(maxRepeats:Int,noCache:Boolean=false) extends BaseFetcherActor(maxRepeats,noCache) {
+
+  case class ABFlight(
+    iataFrom: String,
+    iataTo: String,
+    depdate: java.util.Date,
+    avldate: java.util.Date,
+    flnum:String,
+    avline:String
+  )
+
+  case class ABTicket(val ticket:model.Ticket,val flclass:FlightClass,val price:Float)
+
+  def complete(sender:ActorRef,tr:model.TravelRequest,tickets:Seq[ABTicket] ) = {
+    logger.info(s"Search $tr: Completed: ${tickets.length} tickets found")
+
+    val tickets2send = tickets.groupBy(_.ticket.tuid).map {
+      t => 
+      val t0 = if ( tr.flclass ==  Business)
+        t._2.filter( _.flclass == Business ).minBy(_.price)  
+      else 
+        t._2.minBy(_.price)
+
+      t0.ticket
+
+    }.toSeq
+
+    val ret = SearchResult(tr,tickets2send)
+
+    saveDBCache(ret)
+
+    sender ! ret
+  }
+
+
+  def receive = {
+    case StartSearch(tr) => processSearch(sender,tr) {
+      val t = doRealSearch2( tr )
+      complete(sender,tr,t)      
+    }
+  }
+
+  def doRealSearch2(tr:model.TravelRequest):Seq[ABTicket]
 
 }

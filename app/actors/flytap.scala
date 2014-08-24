@@ -18,7 +18,11 @@ import actors.PhantomExecutor.Selector
 import utils.Utils2.withClose
 import model.SearchResult
 
-class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
+object FlyTap {
+  val ID = "TP"
+}
+
+class FlyTap(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
   var idd = 0
 
   case class FlightInfo(trel:Selector,points:Seq[model.Flight]) {
@@ -34,7 +38,7 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
   case class PriceInfo(classStr:String,priceEl:Selector,price:Float) {
     val flclass = if ( classStr == "discount" || classStr == "basic" || classStr == "classic") Economy else Business
   }
-
+/*
   case class ABFlight(
     iataFrom: String,
     iataTo: String,
@@ -45,58 +49,11 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
   )
 
   case class ABTicket(val ticket:model.Ticket,val flclass:FlightClass,val price:Float)
-
+*/
   import context.dispatcher
   import context.become
-
+  val ID = FlyTap.ID
   val logger = Logger("FlyTap")
-
-  var rqIdx = 0
-  //var curSender:ActorRef = null
-  //var curRequest:model.TravelRequest = null
-  
-
-  def receive = {
-    case StartSearch(tr) => 
-
-      processSearch(sender,tr)
-  }
-
-
-  def complete(sender:ActorRef,tr:model.TravelRequest,tickets:Seq[ABTicket] = Seq() ) = {
-    logger.info(s"Search $tr: Completed: ${tickets.length} tickets found")
-
-    val tickets2send = tickets.groupBy(_.ticket.tuid).map {
-      t => 
-      val t0 = if ( tr.flclass ==  Business)
-        t._2.filter( _.flclass == Business ).minBy(_.price)  
-      else 
-        t._2.minBy(_.price)
-
-      t0.ticket
-
-    }.toSeq
-
-    sender ! SearchResult(tr,tickets2send)
-
-  }
-
-  def processSearch(sender:ActorRef,tr:model.TravelRequest) = {
-    rqIdx+=1
-    
-    logger.info(s"StartSearch:${rqIdx} ${tr}")
-
-    //become(waitAnswer(sender,tr))
-    if ( availIatas != null ) {
-      if (! availIatas.contains(tr.iataFrom)) {
-        logger.warn(s"No routes for iataFrom:${tr.iataFrom} availible")
-        complete(sender,tr)
-      } else if ( ! availIatas.contains(tr.iataTo)) {
-        logger.warn(s"No routes for iataTo:${tr.iataTo} availible")
-        complete(sender,tr)
-      } else doRealSearch(sender,tr)
-    } else doRealSearch(sender,tr)
-  }
 
   def asPrice(d:String) = {
     val r = """\d+\.\d{1,2}""".r
@@ -271,27 +228,7 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
   val pageLoadTimeout = 5 seconds
   val pageResultTimeout = 20 seconds
 
-  def doRealSearch(sender:ActorRef,tr:model.TravelRequest,_maxRepeats:Int = maxRepeats ) {
-
-    try {
-
-      val t = doRealSearch2( tr )
-
-      complete(sender,tr,t)
-
-    } catch {
-      
-      case ex:Throwable => 
-        if ( _maxRepeats > 1 ) {
-          logger.warn(s"Parsingxx: $tr failed. Try ${maxRepeats - _maxRepeats}/$maxRepeats times exception: $ex\n" + ex.getStackTrace().mkString("\n"))
-          doRealSearch(sender,tr,_maxRepeats-1)
-        } else {
-          logger.error(s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n"))
-          sender ! akka.actor.Status.Failure(ex)
-        }
-    }
-
-  }
+  
 
   var name2iata = Map[String,String]()
 
@@ -305,7 +242,7 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
     val r = actors.PhantomExecutor.open("http://www.flytap.com/Deutschland/en/Homepage",isDebug=false,execTimeout=300 seconds)
 
     var Success(p) = try {
-      scala.concurrent.Await.result(r,pageLoadTimeout) 
+      scala.concurrent.Await.result(r,pageLoadTimeout*2) 
     } catch {
       case ex:Throwable => 
         logger.error( s"Parsing: $tr failed - fetching failed $ex" )
@@ -314,7 +251,7 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
 
     var tidx = 0
 
-    try {
+    catchFetching(p,tr) {
       
     	// wait for autocomplete selectors
 
@@ -389,15 +326,6 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
           el:Selector => FlightInfo(el.parentNode,getPoints(el,curTime))
         }
         
-        
-        
-        /*
-        withClose ( p.$("#matrix > fieldset > table > tbody > tr.book-matrix-row").map {
-          el:Selector => FlightInfo(el,getPoints(el,curTime))
-        } ) {
-          () => goBackToArrivalsList(p)
-        }
-        */
       }
       
       val fetchedTickets = if ( tr.traveltype == model.TravelType.OneWay )
@@ -408,8 +336,8 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
           val price = priceInfo.price * tr.adults + priceInfo.price * tr.childs 
           val ticket = model.Ticket(flinfo.tuid,flinfo.points,
             None,
-            Map("TP"->price),
-            Map("TP" -> ("TP:" + flinfo.tuid ) )
+            Map(ID->price),
+            Map(ID -> (ID + ":" + flinfo.tuid ) )
           )
           ABTicket ( ticket, 
             priceInfo.flclass,
@@ -427,8 +355,8 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
           val tuid  = flinfo.tuid + "-" + returnFlinfo.tuid
           val ticket = model.Ticket(tuid,flinfo.points,
             Some(returnFlinfo.points),
-            Map("TP"->price),
-            Map("TP" -> ("TP:" + tuid ) )
+            Map(ID->price),
+            Map(ID -> (ID + ":" + tuid ) )
           )
           ABTicket ( ticket, 
             flclass = if ( priceInfo.flclass == Business && returnPriceInfo.flclass == Business ) Business else Economy,
@@ -441,25 +369,6 @@ class FlyTap(maxRepeats:Int=1) extends BaseFetcherActor  {
 
       fetchedTickets.toSeq
 
-		} catch {
-      case ex:NoFlightsException => 
-        logger.info(s"Searching $tr flights are not availible" )
-        p.render("phantomjs/images/flytap-warn.png")
-        p.close
-        Seq()
-
-      case ex:NotAvailibleDirecttion =>
-        logger.info( s"Parsing: $tr no such direction")
-        p.render("phantomjs/images/flytap-error.png")
-        p.close
-        Seq()
-
-      case ex:Throwable => 
-        logger.error( s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n") )
-        p.render("phantomjs/images/flytap-error.png")
-        p.close
-        //self ! Complete()
-        throw ex
 		}
 
 	}  

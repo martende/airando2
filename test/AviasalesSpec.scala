@@ -32,12 +32,18 @@ import scala.util.{Try, Success, Failure}
 
 import model.SearchResult
 
-class AviasalesParserSpec extends FunSuite {
+/*
+  
+  Local* - parsers with local deps 
+  
+*/
+class LocalAviasalesParser extends FunSuite {
   
   test("testdata/CGN-BER-20140812-aviasales.json") {
     val d = scala.io.Source.fromFile("testdata/CGN-BER-20140812-aviasales.json").mkString
     val AVSParser = new actors.AvsParser with actors.WithLogger {
       val logger = Logger("AvsParser-tester")
+      override def updateGates(gates:Seq[model.Gate]) = {}
     }
 
     val actors.AviasalesSearchResult(data,curencies,avialines) = AVSParser.parse(d)
@@ -63,7 +69,7 @@ class AviasalesParserSpec extends FunSuite {
 }
 
 
-class MongoSpec extends FunSuite with BeforeAndAfterAll {
+class LocalMongoSpec extends FunSuite with BeforeAndAfterAll {
   import com.mongodb.casbah.Imports._
   import org.joda.time.LocalDateTime
   import com.mongodb.casbah.commons.conversions.scala._
@@ -111,14 +117,15 @@ class MongoSpec extends FunSuite with BeforeAndAfterAll {
 }
 
 
-class AVSParserSpecLive extends FunSuite with ScalaFutures {
+class LocalAVSParserSpecLive extends FunSuite with ScalaFutures {
   implicit override def patienceConfig =
   PatienceConfig(timeout = Span(1, Seconds), interval = Span(50, Millis))
 
   test("MSQ airport") {
     import scala.concurrent._
 
-    val r = new actors.AvsCacheParser() {
+    //class AA extends ;
+    val r = new actors.AvsCacheParserAPI with actors.FileCaching {
       override lazy val cacheDir="./cache/"
     }.fetchAviasalesCheapest("MSQ")
 
@@ -160,7 +167,7 @@ class BaseActorTester (_system: ActorSystem) extends akka.testkit.TestKit(_syste
 
 }
 
-class AviasalesSpec extends BaseActorTester
+class RemoteAviasalesSpec extends BaseActorTester
   with ImplicitSender with ScalaFutures {
 
   implicit override def patienceConfig =
@@ -169,18 +176,28 @@ class AviasalesSpec extends BaseActorTester
   val fetcher = system.actorOf(Props[actors.Aviasales])  
 
   test("t1") {
-    within (5 seconds) {
+    within (60 seconds) {
       fetcher ! p3
       expectMsgPF() {
-        case actors.AviasalesSearchResult(tickets,_,_) => 
+        case t @ ( SearchResult(_,_) | actors.AviasalesSearchResult(_,_,_) ) => 
+          val tickets = t match {
+            case SearchResult(_,v) => v
+            case actors.AviasalesSearchResult(v,_,_) => v
+          }
           assert ( tickets.length >  100 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 521.6497f )
+        //case x => println("AAAAAAAAA",x.getClass)
       }
+      
+      Thread.sleep(1000)
+
     }
   }
 
 }
 
-class SwissAirlinesSpec extends BaseActorTester
+class RemoteSwissAirlinesSpec extends BaseActorTester
   with ImplicitSender with ScalaFutures {
 
   implicit override def patienceConfig =
@@ -220,7 +237,7 @@ class SwissAirlinesSpec extends BaseActorTester
         case SearchResult(_,tickets) => 
           assert ( tickets.length !=  0 ) 
           val mt = tickets.minBy(_.minPrice) 
-          assert( mt.minPrice == 601.0 )
+          assert( mt.minPrice == 596.0 )
           
       }
     }
@@ -229,7 +246,7 @@ class SwissAirlinesSpec extends BaseActorTester
 }
 
 
-class FlyTapSpec extends BaseActorTester
+class RemoteFlyTapSpec extends BaseActorTester
   with ImplicitSender with ScalaFutures {
 
   implicit override def patienceConfig =
@@ -279,7 +296,7 @@ class FlyTapSpec extends BaseActorTester
 
 
 
-class CheapAirSpec extends BaseActorTester
+class RemoteCheapAirSpec extends BaseActorTester
   with ImplicitSender with ScalaFutures {
 
   implicit override def patienceConfig =
@@ -314,7 +331,7 @@ class CheapAirSpec extends BaseActorTester
             println(t)
           }*/
           val mt = tickets.minBy(_.minPrice) 
-          assert( mt.minPrice == 490 )
+          assert( mt.minPrice == 520 )
           
           //val f1 = tickets.find(_.minPrice == 585 ).get
           //assert ( f1.tuid == "201503211100HAM:201503211440PMI:201503211610SVQ-201503231010SVQ:201503231230BCN:201503231510HAM" )
@@ -322,4 +339,131 @@ class CheapAirSpec extends BaseActorTester
     }
   }
 
+}
+
+class RemoteAirberlinSpec extends BaseActorTester
+  with ImplicitSender with ScalaFutures {
+
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(60, Seconds), interval = Span(500, Millis))
+
+  val fetcher = system.actorOf(Props(new actors.Airberlin(maxRepeats=1)))
+
+  test("HAM -> SVQ") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.Return,
+          "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 265.84f )
+      }
+    }
+  }
+/*
+  test("HAM -> SVQ oneway") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.OneWay,
+          "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 304.04f )
+      }
+    }
+  }
+
+  test("SVQ -> HAM oneway") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("SVQ","HAM",model.TravelType.OneWay,
+          "2015-03-23","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 258.69f )
+      }
+    }
+  }
+  */
+}
+
+
+
+class RemoteNorvegianSpec extends BaseActorTester
+  with ImplicitSender with ScalaFutures {
+
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(60, Seconds), interval = Span(500, Millis))
+
+  val fetcher = system.actorOf(Props(new actors.NorvegianAirlines(maxRepeats=1,noCache=true)))
+
+  test("HAM -> SVQ") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.Return,
+          "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length ==  0 ) 
+          //val mt = tickets.minBy(_.minPrice) 
+          //assert( mt.minPrice == 265.84f )
+      }
+    }
+  }
+
+  test("HEL -> BER") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("HEL","BER",model.TravelType.OneWay,
+          "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length ==  0 ) 
+      }
+    }
+  }
+
+
+  test("HEL -> BER - 2") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("HEL","BER",model.TravelType.OneWay,
+          "2015-03-23","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length ==  2 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 110.7f )
+          
+      }
+    }
+  }
+
+/*
+  test("HAM -> SVQ oneway") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.OneWay,
+          "2015-03-21","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 304.04f )
+      }
+    }
+  }
+
+  test("SVQ -> HAM oneway") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("SVQ","HAM",model.TravelType.OneWay,
+          "2015-03-23","2015-03-23",1,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 258.69f )
+      }
+    }
+  }
+  */
 }

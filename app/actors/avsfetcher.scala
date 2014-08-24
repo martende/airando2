@@ -17,6 +17,7 @@ import scala.concurrent.duration._
 // TravelType enum import
 import model.TravelType._
 import model.FlightClass._
+import model.SearchResult
 
 import java.text.SimpleDateFormat
 
@@ -43,8 +44,7 @@ object AviasalesConfig {
 
 case class AviasalesSearchResult(tickets:Seq[model.Ticket],cur2eur:Map[String,Float],airlines:Seq[AVSAirline])
 
-class AvsCacheParser extends Caching with WithLogger {
-
+trait AvsCacheParserAPI extends CachingAPI with WithLogger {
   val logger = Logger("AvsCacheParser")
 
   import play.api.libs.concurrent.Execution.Implicits._
@@ -129,12 +129,14 @@ class AvsCacheParser extends Caching with WithLogger {
 
 }
 
-object AvsCacheParser extends AvsCacheParser {
+object AvsCacheParser extends AvsCacheParserAPI with NoCaching {
 
 }
 
 trait AvsParser {
   self:WithLogger => 
+
+  def updateGates(gates:Seq[model.Gate]) = actors.Manager.updateGates(gates)
 
   implicit val avReads =  (
     (__ \ "origin").read[String] and
@@ -248,11 +250,8 @@ trait AvsParser {
         throw play.api.UnexpectedException(Some("aviasales.ru parsing failed"))
     }
 
-    //val ret = s"len ${data.length}\n" + data
-
-    //Ok(ret + "\n\n\n" )
-    actors.Manager.updateGates(gates)
-
+    updateGates(gates)
+    
     AviasalesSearchResult(data/*,gates*/,cur2eur,airlines)
 
   }
@@ -260,31 +259,31 @@ trait AvsParser {
 
 
 
-class Aviasales extends BaseFetcherActor with Caching with AvsParser {
+class Aviasales(maxRepeats:Int=1,noCache:Boolean=false) extends BaseFetcherActor(maxRepeats,noCache) with NoCaching with AvsParser {
   import context.dispatcher
   import context.become
 
+  val ID = "AVS"
   val logger = Logger("Aviasales")
-
-  var rqIdx = 0
-  var curSender:ActorRef = null
-  var curRequest:model.TravelRequest = null
   
   def receive = {
-    case StartSearch(tr) => 
-      processSearch(sender,tr)
+    case StartSearch(tr) => processSearch(sender,tr) {
+        val t = doRealSearch(tr)
+        complete(sender,tr,t)
+      }
   }
 
 
-  def complete(sr:AviasalesSearchResult = AviasalesSearchResult(Seq(),Map(),Seq()) ) = {
+  def complete(sender:ActorRef,tr:model.TravelRequest,sr:AviasalesSearchResult = AviasalesSearchResult(Seq(),Map(),Seq())  ) = {
 
-    logger.info(s"Search $curRequest: Completed: ${sr.tickets.length} tickets found")
+    logger.info(s"Search $tr: Completed: ${sr.tickets.length} tickets found")
 
-    curSender ! sr
+    saveDBCache(SearchResult(tr,sr.tickets))
 
-    curSender = null
+    sender ! sr
   }
 
+/*
   def processSearch(_sender:ActorRef,tr:model.TravelRequest) = {
     rqIdx+=1
     curSender = _sender 
@@ -295,40 +294,15 @@ class Aviasales extends BaseFetcherActor with Caching with AvsParser {
     doRealSearch(tr)
 
   }
-
+*/
   val pageLoadTimeout = 2 seconds
   val pageResultTimeout = 60 seconds
 
 
-  def doRealSearch(tr:model.TravelRequest,maxTryes:Int = 3) {
+  def doRealSearch(tr:model.TravelRequest) = {
     
+    Await.result( fetchAviasales(tr),pageResultTimeout )
 
-    //class NotAvailibleDirecttion extends Throwable;
-    
-    try {
-
-      val t = Await.result( fetchAviasales(tr),pageResultTimeout )
-
-      complete(t)
-
-    } catch {
-      /*case ex:NoFlightsException => 
-        logger.info(s"Searching $tr flights are not availible" )
-        complete()
-
-      case ex:NotAvailibleDirecttion =>
-        logger.info( s"Parsing: $tr no such direction")
-        complete()
-      */
-      case ex:Throwable => 
-        if ( maxTryes != 0 ) {
-          logger.warn(s"Parsing: $tr failed. Try ${maxTryes-1} times exception: $ex\n" + ex.getStackTrace().mkString("\n"))
-          doRealSearch(tr,maxTryes-1)
-        } else {
-          curSender ! akka.actor.Status.Failure(ex)
-          logger.error(s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n"))
-        }
-    }
   }  
 
   // def md5(text: String) : String = java.security.MessageDigest.getInstance("MD5").digest(text.getBytes()).map(0xFF & _).map { "%02x".format(_) }.foldLeft(""){_ + _}

@@ -71,9 +71,9 @@ object ExternalGetter {
   val aviasales         = Await.result((supervisor ? Props[actors.Aviasales]).mapTo[ActorRef], timeout.duration)
   */
 
-  val norvegianAirlines = Akka.system.actorOf(Props[actors.NorvegianAirlines],"NorvegianAirlines")  
-  val airberlin = Akka.system.actorOf(Props[actors.Airberlin],"Airberlin")  
-  val aviasales = Akka.system.actorOf(Props[actors.Aviasales],"Aviasales")
+  val norvegianAirlines = Akka.system.actorOf(Props(new actors.NorvegianAirlines()),"NorvegianAirlines")  
+  val airberlin = Akka.system.actorOf(Props(new actors.Airberlin()),"Airberlin")  
+  val aviasales = Akka.system.actorOf(Props(new actors.Aviasales(noCache=true)),"Aviasales")
   val swissairlines = Akka.system.actorOf(Props(new actors.SwissAirlines()),"SwissAirlines")
   val flytap = Akka.system.actorOf(Props(new actors.FlyTap()),"FlyTap")
   val cheapair = Akka.system.actorOf(Props(new actors.CheapAir()),"CheapAir")
