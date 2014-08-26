@@ -230,7 +230,7 @@ object Manager {
   lazy val managerActor = Akka.system.actorOf(Props[ManagerActor],"manager")
   lazy val gatesActor = Akka.system.actorOf(Props[actors.GatesStorageActor],"GatesStorageActor")
   lazy val currencyActor = Akka.system.actorOf(Props[actors.CurrenciesStorageActor],"CurrencyStorageActor")
-
+  lazy val phantomIdCounter = Akka.system.actorOf(Props[actors.PhantomIdCounter],"PhantomIdCounter")
 
   val fastTimeout = 0.1 seconds
 
@@ -320,6 +320,9 @@ object Manager {
     fastAwait( (currencyActor ? cur ).mapTo[Float] )
   }
 
+  def nextPhantomId() = 
+    //val idactor = utils.ActorUtils.selectActor[PhantomIdCounter]("PhantomIdCounter",Akka.system) 
+    fastAwait( (currencyActor ? 1 ).mapTo[Int] )
+  
 }
-
 

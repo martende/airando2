@@ -2,14 +2,13 @@ package actors
 
 import play.api.libs.concurrent.Akka
 
-import akka.actor.{Actor,Props,Identify, ActorIdentity,ActorSystem,ActorRef,Cancellable}
+import akka.actor.{Actor,Props,Identify, ActorIdentity,ActorSystem,ActorRef,ActorLogging,Cancellable}
 
 import play.api.Logger
 import play.api.Play.current
 
 import scala.concurrent.{Await,Future,Promise}
 import scala.util.{Try, Success, Failure}
-
 import akka.pattern.ask
 import akka.util.Timeout
 import scala.concurrent.duration._
@@ -34,11 +33,11 @@ import java.text.SimpleDateFormat
 
 import model.{Gate,TravelRequest,SearchResult,Ticket,Flight}
 
-class GatesStorageActor extends Actor {
+class GatesStorageActor extends Actor with ActorLogging {
 
     var gatesMap:Map[String,Gate] = Map(
       "DY"->Gate("DY","eur","NorvegianAirlines"),
-      actors.CheapAir.ID->Gate(actors.CheapAir.ID,"eur","Airberlin"),
+      actors.Airberlin.ID->Gate(actors.Airberlin.ID,"eur","Airberlin"),
       "LX"->Gate("LX","eur","Swiss"),
       "TP"->Gate("TP","eur","TAP Portugal"),
       actors.CheapAir.ID->Gate(actors.CheapAir.ID,"usd","CheapAir")
@@ -47,7 +46,12 @@ class GatesStorageActor extends Actor {
     def receive = {
         case gateIds:Seq[Any] => 
           if (!gateIds.isEmpty) gateIds.head match {
-            case _:String  => sender ! gateIds.asInstanceOf[Seq[String]].flatMap(gatesMap get _)
+            case _:String  => sender ! gateIds.asInstanceOf[Seq[String]].flatMap {
+              x => gatesMap.get(x).orElse {
+                log.error(s"$x Not found")
+                None
+              }
+            }
             case _:Gate    => for (g <- gateIds.asInstanceOf[Seq[Gate]] ) {
               gatesMap += (g.id -> g)
             }
@@ -55,7 +59,6 @@ class GatesStorageActor extends Actor {
         
     }
 }
-
 
 
 class CurrenciesStorageActor extends Actor {
@@ -184,7 +187,7 @@ trait DBApi {
 case class CacheResult(service:String,r:SearchResult)
 case class CacheRequest(service:String,tr:TravelRequest)
 
-class CacheStorageActor extends Actor with DBApi with akka.actor.ActorLogging {
+class CacheStorageActor extends Actor with DBApi with ActorLogging {
   
   
   val mongoClient:MongoClient = MongoClient("localhost", 27017)
@@ -196,7 +199,7 @@ class CacheStorageActor extends Actor with DBApi with akka.actor.ActorLogging {
     case CacheRequest(id,tr) => 
       val ret = get(id,tr)
       sender ! ret
-    case x => log.error("Unkwnown message")
+    case x => log.error(s"Unkwnown message $x")
   }
 
 }

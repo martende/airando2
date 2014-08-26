@@ -185,6 +185,7 @@ define([
       var gatesHtml = [];
       for ( var i = 0 ; i < used_gates.length ; i++) {
         var gi = used_gates[i];
+        //if (!gates[gi]) 
         gatesHtml.push({
           url: this.hash2url(urls[gi]),
           label: gates[gi].label,

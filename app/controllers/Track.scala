@@ -118,6 +118,7 @@ trait Track extends Controller {
                     val gates = (x \ "tickets").asOpt[JsArray].map {
                       x => x.value.flatMap { tkt => (tkt \ "order_urls").as[JsObject].keys } .toSet
                     }
+
                     val gatesObjs = gates match {
                       case Some(gset) => 
                           val fgset = gset.filter { x=>
@@ -126,6 +127,7 @@ trait Track extends Controller {
                           actors.Manager.getGates(fgset).toSeq
                       case None => List()
                     }
+
                     implicit val gatesWrites = Json.writes[Gate]
 
                     x.transform(

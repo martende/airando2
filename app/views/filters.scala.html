@@ -144,6 +144,27 @@
     </script>           
   </div>
 
+  <div class="panel-heading collapsed" data-toggle="collapse" href="#gatesList">
+    <i class="fa fa-plus-square-o"></i>
+    <i class="fa fa-minus-square-o"></i>
+    Gates:
+  </div>
+  <div id="gatesList" class="panel-body for-list collapse">
+    <script type="text/template" id="tmplGate">
+        <% _.each( ret, function( avl ){ %>
+        <label>
+          <input type="checkbox" value="<%- avl.id %>">
+          <span class="info">
+            <%- avl.name %>
+          </span>
+          <% if (avl.price !== null)  { %>
+          <div class="price pull-right" data-cur="eur" data-val="<%- avl.price %>"><%- avl.priceText %></div>
+          <% } %>
+        </label>
+        <% }); %>
+    </script>           
+  </div>
+
   <div class="panel-heading collapsed" data-toggle="collapse" href="#depAirportsList">
     <i class="fa fa-plus-square-o"></i>
     <i class="fa fa-minus-square-o"></i>

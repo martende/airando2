@@ -149,13 +149,13 @@ trait AvsParser {
     (__ \ "departure").read[Long].map {
       mseconds => 
       // TODO: - 3600000L WTF ?
-      val d = new java.util.Date( ( mseconds ) *1000  - java.util.TimeZone.getDefault().getRawOffset() )
+      val d = new java.util.Date( ( mseconds ) *1000  - java.util.TimeZone.getDefault().getRawOffset() - 3600000L )
       //println("DEPRT",d,mseconds)
       d
     } and
     (__ \ "arrival").read[Long].map {
       mseconds => 
-        val d = new java.util.Date(mseconds *1000  - java.util.TimeZone.getDefault().getRawOffset()  )
+        val d = new java.util.Date(mseconds *1000  - java.util.TimeZone.getDefault().getRawOffset()  - 3600000L)
         //println("AVL",mseconds,mseconds*1000,d)
         Some(d)
     } and

@@ -254,7 +254,7 @@ class NorvegianAirlines(maxRepeats:Int=1,noCache:Boolean=false) extends SingleFe
         }
 
         def asDate(v:String) = {
-          val df = new java.text.SimpleDateFormat("E d. MMM y h:m")
+          val df = new java.text.SimpleDateFormat("E d. MMM y H:m")
           df.parse(v)
         }
 
@@ -332,7 +332,10 @@ class NorvegianAirlines(maxRepeats:Int=1,noCache:Boolean=false) extends SingleFe
 
           testOn("Points not found")(points.length > 0)
           
-          val price = asPrice(trs.at(lastI).innerText)
+          //println(trs.outerHTML)
+
+          val price = asPrice(trs.at(lastI).$("td").last.innerText)
+
           val depDate = points(0).depdate
           val avlDate = (new DateTime(depDate)).withHourOfDay(avl.h).withMinuteOfHour(avl.m).plusDays(avl.daysAdd).toDate()
           
@@ -355,6 +358,8 @@ class NorvegianAirlines(maxRepeats:Int=1,noCache:Boolean=false) extends SingleFe
         }
         
         p.render("phantomjs/images/norvegian1.png")      
+        
+        p.close
 
         fetchedTickets.toSeq
     }

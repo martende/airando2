@@ -12,14 +12,32 @@ import play.api.libs.concurrent.Akka
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
 
+class PhantomIdCounter extends Actor {
+  var idx = 0
+/*
+  override def preStart() {
+    println(s"preStart !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+  }
+
+  override def postStop() {
+    println(s"gonadie !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+  }
+*/
+  def receive() = {
+    case _ => 
+//      println("RECEIVE",idx)
+      idx+=1
+      sender ! idx
+  }
+}
+
 class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds) extends Actor {
   import PhantomExecutor._
-
   val phantomCmd = Seq("./bin/phantomjs","--proxy=127.0.0.1:3128","phantomjs/core.js")
 
-  import context.{dispatcher,become}
+  import context.{dispatcher,become,system}
   var isDebug = _isDebug
-  val system = akka.actor.ActorSystem("system")
+
   val logger = Logger("PhantomExecutor")
 
   val fatalPromise = Promise[Int]()
@@ -27,6 +45,8 @@ class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds)
   var evlid:Int = 0
   var evals:Map[Int,ActorRef] = Map()
   var gonaDie = false
+  var currentUrl = ""
+
   // var inOpen = false 
 
   override def preStart() {
@@ -57,18 +77,23 @@ class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds)
     case _ => sender ! Failed(new Exception("stopped"))
   }
 
+  private def _format(message:String) = {
+    "[" + Thread.currentThread.getName +"/" + self.toString + "] " + message
+  }
 
-  def debug(message: => String) = if (isDebug) logger.debug(message)
-  def warn(message: => String) = if (isDebug) logger.warn(message)
-  def info(message: => String) = logger.info(message)
+  def debug(message: => String) = if (isDebug) logger.debug(_format(message))
+  def warn(message: => String) = if (isDebug) logger.warn(_format(message))
+  def info(message: => String) = logger.info(_format(message))
+  def error(message: => String) = logger.error(_format(message))
 
   def started():PartialFunction[Any, Unit] = {
     {
-      // case Start() => logger.error("Already started")
+      // case Start() => error("Already started")
       case OpenUrl(url)  => 
         info(s"OpenUrl '$url'")
         become(waiturl(sender))
         sendPhantom("OPEN "+url)
+        currentUrl = url
       case Eval(js) => 
         debug("RECV Eval()")
         evlid+=1
@@ -97,7 +122,7 @@ class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds)
           case Some(ret) => ret ! EvalResult(result)
 
             evals -= _evlid
-          case None => logger.error(s"EvalComplete Duplication: ${_evlid} $result")
+          case None => error(s"EvalComplete Duplication: ${_evlid} $result")
         }
       case ev @ Failed(_) => 
         become(failed())
@@ -106,7 +131,7 @@ class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds)
       //case ev : OpenUrlResult => 
       //    _sender ! ev
 
-      case x => logger.error("Unknown action")
+      case x => error("Unknown action")
 
     }
   }
@@ -124,7 +149,7 @@ class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds)
       become(instart(sender))
       execAsync()
 
-    case x => logger.error("Unkwnown Signal $x")
+    case x => error("Unkwnown Signal $x")
   }
 
   def sendPhantom(cmd:String) {
@@ -180,8 +205,8 @@ class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds)
           debug(s"opn cmd: '$pageId,$status'")
           if ( status == "success") self ! OpenUrlResult(Success(true))
           else self ! OpenUrlResult(Failure(new Exception(status)))
-        case "ERR" => logger.error(s"error '$arg'")
-        case _ => logger.error(s"Unknown phantom answer '$s'")
+        case "ERR" => error(s"error '$arg'")
+        case _ => error(s"Unknown phantom answer '$s'")
       }
     }
 
@@ -213,8 +238,8 @@ class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds)
 
     val timeout = system.scheduler.scheduleOnce(execTimeout) {
       //process.destroy()
-      val msg = s"Exec timeout=$execTimeout"
-      logger.error(msg)
+      val msg = s"Exec timeout=$execTimeout, url=$currentUrl"
+      error(msg)
       fatalPromise.failure(new Exception(msg))
     }
 
@@ -280,8 +305,8 @@ object PhantomExecutor {
     override def toString = s"AutomationException($msg)"
   }
 
-  implicit val openTimeout = Timeout(60 seconds)
   val fastTimeout = 0.5 seconds
+  implicit val askTimeout = Timeout(60 seconds)
 
   case class ClientRect(left:Double,right:Double,top:Double,bottom:Double,height:Double,width:Double)
   
@@ -323,6 +348,27 @@ object PhantomExecutor {
       } catch {
         case ex:Throwable => Logger("PhantomExecutor").warn(s"Render page to $fname - failed Exception($ex")
       }
+
+    }
+
+
+    def open(url:String,openTimeout:FiniteDuration = 10 seconds) {
+      
+      ( ask(_fetcher,Start())(Timeout(openTimeout)) ).flatMap {
+        case Started() => 
+            (_fetcher ? OpenUrl(url)).mapTo[OpenUrlResult].map {
+              case OpenUrlResult(Success(_)) => 1
+              case OpenUrlResult(Failure(ex)) => throw ex
+            }
+            //Future.successful(Success(new Page(fetcher)))
+        case Failed(ex) => 
+            //Akka.system.stop(_fetcher)
+            //Future.failed(ex)
+            //throw new AutomationException(s"open $url")
+            throw ex
+        //case x => Failure(new Exception("OKO"))
+      }
+
     }
 
     //def goBack() = evaljs[Boolean](s"page.goBack();true;",2 seconds)
@@ -442,7 +488,7 @@ object PhantomExecutor {
     } 
 
     def setDebug(isDebug:Boolean) = _fetcher ! SetDebug(isDebug)
-
+    
     private def _waitForSelector(el:Selector,sellist:String,timeout:Duration) = {
       val tms = Math.max(timeout.toMillis,100)
       val js = """
@@ -937,33 +983,38 @@ object PhantomExecutor {
     //def newBuilder = ListedSelector
   }
 
+  def apply(isDebug:Boolean=true,execTimeout:FiniteDuration=120 seconds) {
+    val idactor = utils.ActorUtils.selectActor[PhantomIdCounter]("PhantomIdCounter",Akka.system) 
+    val idd = Manager.nextPhantomId()
+    val fetcher = Akka.system.actorOf(props(isDebug=isDebug,execTimeout=execTimeout),name=s"PhantomExecutor-$idd")
+    new Page(fetcher)
+  }
   //var openIdx = 1
 
-  def open(url:String,isDebug:Boolean=true,execTimeout:FiniteDuration=120 seconds):Future[Try[Page]] = {
-    val fetcher = Akka.system.actorOf(props(isDebug=isDebug,execTimeout=execTimeout))
-    //openIdx+=1
-
-    (fetcher ? Start()).flatMap {
-      case Started() => 
-          (fetcher ? OpenUrl(url)).mapTo[OpenUrlResult].map {
-            case OpenUrlResult(Success(_)) => Success(new Page(fetcher))
-            case OpenUrlResult(Failure(ex)) => Failure(ex)
-          }
-          //Future.successful(Success(new Page(fetcher)))
-      case Failed(ex) => 
-          Akka.system.stop(fetcher)
-          Future.failed(ex)
-      //case x => Failure(new Exception("OKO"))
-    }
+  def open(url:String,isDebug:Boolean=true,execTimeout:FiniteDuration=120 seconds,openTimeout:FiniteDuration = 10 seconds):Future[Try[Page]] = {
+    //implicit val timeout = Timeout(60 seconds)
+    val idactor = utils.ActorUtils.selectActor[PhantomIdCounter]("PhantomIdCounter",Akka.system) 
     
-    /*for ( 
-      f1 <- (fetcher ? Start()) ;
-      f2 <- (fetcher ? OpenUrl(url)) 
-    ) yield {
-      println("AAAAAA",f1,f1.getClass)
-      println("BBBBBB",f2,f2.getClass)
-      Failure(new Exception("IJI"))
-    }*/
+    //println(idactor)
+    val ret:Future[Try[Page]] = (idactor ? 1).mapTo[Int].flatMap {
+      idd:Int => 
+      val fetcher = Akka.system.actorOf(props(isDebug=isDebug,execTimeout=execTimeout),name=s"PhantomExecutor-$idd")
+      (ask(fetcher,Start())(Timeout(execTimeout)) ).flatMap {
+        case Started() => 
+            (fetcher ? OpenUrl(url)).mapTo[OpenUrlResult].map {
+              case OpenUrlResult(Success(_)) => Success(new Page(fetcher))
+              case OpenUrlResult(Failure(ex)) => Failure(ex)
+            }
+            //Future.successful(Success(new Page(fetcher)))
+        case Failed(ex) => 
+            Akka.system.stop(fetcher)
+            Future.failed(ex)
+        //case x => Failure(new Exception("OKO"))
+      }
+    }
+    ret
   }
+
+
 
 }

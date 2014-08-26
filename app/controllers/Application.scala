@@ -30,6 +30,7 @@ import model.FlightClass._
 import play.api.libs.concurrent.Execution.Implicits._
 
 import org.joda.time.DateTime
+import java.net.URLEncoder
 
 object Application extends Controller with CookieLang with Track {
 
@@ -203,69 +204,112 @@ object Application extends Controller with CookieLang with Track {
     }
   }
 
-  def redirect(adults:Int,children:Int,infants:Int,id:String) = Action.async {
+  private def forFormat(df:String,id:String):(String,String,String,String) = {
     val inpFormat = new java.text.SimpleDateFormat("yyyyMMdd");
+    val outFormat = new java.text.SimpleDateFormat(df);
 
-    if ( id.substring(0,4) == "avs:") {
-      import actors.AvsCacheParser
-      AvsCacheParser.fetchRedirUrl(id.substring(4)).map {
-        url => Results.Found(url)
-      }
-    } else id.substring(0,3) match {
+    val i = id.indexOf("-")
+    val idl = id.length
+    if ( i == -1 ) {
+      // 01.08.2013
+      val d0 = outFormat.format(inpFormat.parse(id.substring(0,8)))
+      val iata0 = id.substring(12,15)
+      val iata1 = id.substring(idl-3,idl)
+      (iata0,iata1,d0,"")
+    } else {
+      // 01.08.2013
+      val d0 = outFormat.format(inpFormat.parse(id.substring(0,8)))
+      val d1 = outFormat.format(inpFormat.parse(id.substring(i+1,i+9)))
+      val iata0 = id.substring(12,15)
+      val iata1 = id.substring(i-3,i)
+      (iata0,iata1,d0,d1)
+    }
+  }
+  
+  private def mkParams(m:Map[String,String]) = 
+    m.map(x => x._1 + "=" + URLEncoder.encode(x._2, "UTF-8") ).mkString("&")
 
-      case "LX:" => 
+
+  def redirect(adults:Int,children:Int,infants:Int,id:String) = Action.async {
+    val ti = id.indexOf(":")
+    val inpFormat = new java.text.SimpleDateFormat("yyyyMMdd");
+    val (idd,idc) = ( id.substring(0,ti),id.substring(ti+1) )
+    if ( ti != -1 ) idd match {
+      case "avs" =>
+        import actors.AvsCacheParser
+        AvsCacheParser.fetchRedirUrl(id.substring(4)).map {
+          url => Results.Found(url)
+        }
+
+      case "CHPA" =>
+        val (iataFrom,iataTo,departure,arrival) = forFormat("MM/dd/yyyy",idc)
+        // 
+        val aParams:Map[String,String] = Map( 
+          "dt1" -> departure,
+          "dt2" -> arrival,
+          "aid" -> "11206255",
+          "pid" -> "7621953",
+          "url" -> "http://www.cheapair.com/air/?uid=397",
+          "AID" -> "11206255",
+          "PID" -> "7621953",
+          "uid" -> "397",
+          "rt"  -> ( if (arrival == "") "O" else "R"),
+          "from1" -> iataFrom,
+          "to1" -> iataTo,
+          "adults" -> adults.toString
+        )
+
+        val url = s"http://www.jdoqocy.com/interactive?" + mkParams(aParams)
+        Future.successful(Results.Found(url))
+
+      case "DY" => 
+        // 
+        val dFormat = new java.text.SimpleDateFormat("d");
+        val mFormat = new java.text.SimpleDateFormat("yyyyMM");
+        val i = id.indexOf("-")
+        val idl = id.length
+        val (iataFrom,iataTo,dday,dmonth,rday,rmonth,fltype) = if ( i == -1 ) {
+          // 01.08.2013
+          val d0 = inpFormat.parse(id.substring(3,11))
+          val iata0 = id.substring(15,18)
+          val iata1 = id.substring(idl-3,idl)
+          (iata0,iata1,dFormat.format(d0),mFormat.format(d0),"","",1)
+        } else {
+          // 01.08.2013
+          val d0 = inpFormat.parse(id.substring(3,11))
+          val d1 = inpFormat.parse(id.substring(i+1,i+9))
+          val iata0 = id.substring(15,18)
+          val iata1 = id.substring(i-3,i)
+          (iata0,iata1,dFormat.format(d0),mFormat.format(d0),dFormat.format(d1),mFormat.format(d1),1)
+        }
+
+        val url = s"http://www.norwegian.com/en/flight/select-flight/?D_City=$iataFrom&A_City=$iataTo&TripType=$fltype&D_Day=$dday&D_Month=$dmonth&R_Day=$rday&R_Month=$rmonth&AdultCount=$adults&ChildCount=$children&InfantCount=$infants"
+        Future.successful(Results.Found(url))
+      case "LX" => 
         // swiss.com
         //LX:201408110950ZRH:201408111235JFK:201408182100JFK:201408191050ZRH
         // http://clk.tradedoubler.com/click?p=80201&a=2429603&g=18602412&url=http://tracking.mlsat03.de/swiss/affiliate/custom-forwarding.php?kid=571&dlid=10&fwid=34715&origin=CGN&destination=BER&depart=01.08.2012&inbound=01.08.2013&adults=3&children=2&infants=1&country=DE
-        val outFormat = new java.text.SimpleDateFormat("dd.MM.yyyy");
-        val i = id.indexOf("-")
-        val idl = id.length
-        val (iataTo,iataFrom,departure,arrival) = if ( i == -1 ) {
-          // 01.08.2013
-          val d0 = outFormat.format(inpFormat.parse(id.substring(3,11)))
-          val iata0 = id.substring(15,18)
-          val iata1 = id.substring(idl-3,idl)
-          (iata0,iata1,d0,"")
-        } else {
-          // 01.08.2013
-          val d0 = outFormat.format(inpFormat.parse(id.substring(3,11)))
-          val d1 = outFormat.format(inpFormat.parse(id.substring(i+1,i+9)))
-          val iata0 = id.substring(15,18)
-          val iata1 = id.substring(i-3,i)
-          (iata0,iata1,d0,d1)
-        }
-        
+        val (iataFrom,iataTo,departure,arrival) = forFormat("dd.MM.yyyy",idc)
+
         val country = "DE"
         val url = s"http://clk.tradedoubler.com/click?p=80201&a=2429603&g=18602412&url=http://tracking.mlsat03.de/swiss/affiliate/custom-forwarding.php?kid=571&dlid=10&fwid=34715&origin=$iataFrom&destination=$iataTo&depart=$departure&inbound=$arrival&adults=$adults&children=$children&infants=$infants&country=$country"
         Future.successful(Results.Found(url))
-      case "TP:" =>
+      case "TP" =>
         // http://book.flytap.com/r3air/TAPDE/PoweredAvailabilityBP.aspx?origin=FRA&destination=AGP&flightType=Return&depDate=16.08.2014&retDate=23.08.2014&cabinClass=Y&ccSearch=P&adt=1&depTime=0&retTime=0&market=DE&_l=de&maxConn=-1&pageTrace=6
-        val outFormat = new java.text.SimpleDateFormat("dd.MM.yyyy");
-        val i = id.indexOf("-")
-        val idl = id.length
+
         val lang = "en"
-        val (iataFrom,iataTo,departure,arrival,fltype) = if ( i == -1 ) {
-          // 01.08.2013
-          val d0 = outFormat.format(inpFormat.parse(id.substring(3,11)))
-          val iata0 = id.substring(15,18)
-          val iata1 = id.substring(idl-3,idl)
-          (iata0,iata1,d0,"","Single")
-        } else {
-          // 01.08.2013
-          val d0 = outFormat.format(inpFormat.parse(id.substring(3,11)))
-          val d1 = outFormat.format(inpFormat.parse(id.substring(i+1,i+9)))
-          val iata0 = id.substring(15,18)
-          val iata1 = id.substring(i-3,i)
-          (iata0,iata1,d0,d1,"Return")
-        }
+
+        val (iataFrom,iataTo,departure,arrival) = forFormat("dd.MM.yyyy",idc)
+        val fltype = if (arrival =="" ) "Single" else "Return" 
                 
         val country = "DE"
         val _iurl = "http://book.flytap.com/r3air/TAPDE/PoweredAvailabilityBP.aspx?origin=$iataFrom&destination=$iataTo&flightType=$fltype&depDate=$departure&retDate=$arrival&cabinClass=Y&ccSearch=P&adt=$adults&depTime=0&retTime=0&market=$country&_l=$lang&maxConn=-1&pageTrace=6"
-        val iurl = java.net.URLEncoder.encode(_iurl, "UTF-8")
+        val iurl = URLEncoder.encode(_iurl, "UTF-8")
 
         val url = s"http://clkuk.tradedoubler.com/click?p(242403)a(2429603)g(21639146)url($iurl)"
         Future.successful(Results.Found(url))
-
+    } else {
+      Future.successful(NotFound)
     }
   }
 }

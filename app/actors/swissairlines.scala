@@ -38,68 +38,13 @@ class SwissAirlines(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
   case class PriceInfo(classStr:String,priceEl:Selector,price:Float) {
     val flclass = if ( classStr == "economysaver" || classStr == "economy" || classStr == "economyflex") Economy else Business
   }
-/*
-  case class ABFlight(
-    iataFrom: String,
-    iataTo: String,
-    depdate: java.util.Date,
-    avldate: java.util.Date,
-    flnum:String,
-    avline:String
-  )
 
-  case class ABTicket(val ticket:model.Ticket,val flclass:FlightClass,val price:Float)
-*/
   import context.dispatcher
   import context.become
 
   val logger = Logger("SwissAirlines")
 
-  //var curSender:ActorRef = null
-  //var curRequest:model.TravelRequest = null
-  /*
-  def receive = {
-    case StartSearch(tr) => 
-      processSearch(sender,tr)
-  }
 
-
-  def complete(sender:ActorRef,tr:model.TravelRequest,tickets:Seq[ABTicket] = Seq() ) = {
-    logger.info(s"Search $tr: Completed: ${tickets.length} tickets found")
-
-    val tickets2send = tickets.groupBy(_.ticket.tuid).map {
-      t => 
-      val t0 = if ( tr.flclass ==  Business)
-        t._2.filter( _.flclass == Business ).minBy(_.price)  
-      else 
-        t._2.minBy(_.price)
-
-      t0.ticket
-
-    }.toSeq
-
-    sender ! SearchResult(tr,tickets2send)
-
-  }
-
-  def processSearch(sender:ActorRef,tr:model.TravelRequest) = {
-    rqIdx+=1
-    
-    logger.info(s"StartSearch:${rqIdx} ${tr}")
-
-    //become(waitAnswer(sender,tr))
-    if ( availIatas != null ) {
-      if (! availIatas.contains(tr.iataFrom)) {
-        logger.warn(s"No routes for iataFrom:${tr.iataFrom} availible")
-        complete(sender,tr)
-      } else if ( ! availIatas.contains(tr.iataTo)) {
-        logger.warn(s"No routes for iataTo:${tr.iataTo} availible")
-        complete(sender,tr)
-      } else doRealSearch(sender,tr)
-    } else doRealSearch(sender,tr)
-  }
-
-*/
   lazy val usd2eur = Manager.getCurrencyRatio("usd")
   lazy val chf2eur = Manager.getCurrencyRatio("chf")
 
@@ -343,8 +288,7 @@ class SwissAirlines(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
     var tidx = 0
 
     catchFetching(p,tr) {
-      
-    	// wait for autocomplete selectors
+      // wait for autocomplete selectors
 
       scala.concurrent.Await.result({
         p.waitForSelector(p.$("#bookingbar-flight-subtab > form > div > div > div.l-right > button") , pageLoadTimeout * 2 ).recoverWith {
@@ -432,9 +376,6 @@ class SwissAirlines(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
           )
         }
       
-      p.render("phantomjs/images/swissairlines1.png")
-      p.close
-
       fetchedTickets.toSeq
 
 		}

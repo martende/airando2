@@ -27,6 +27,7 @@ define([
       this.templateAirline = _.template($('#tmplAirline').html());
       this.templateAirport = _.template($('#tmplAirport').html());
       this.templateAliance = _.template($('#tmplAliance').html());
+      this.templateGate    = _.template($('#tmplGate').html());
 
       this.initSliders();
     },
@@ -337,7 +338,12 @@ define([
       this._processLists(this.model.getGroupByAliance,
       $("#aliancesList"),this.templateAliance,'aliance');
 
+      this._processLists(this.model.getGroupByGate,
+      $("#gatesList"),this.templateGate,'gate');
+
     },
+
+    
     hhmmFormatter: function(v) {
       var h = Math.floor(v / 3600);
       var m = Math.floor((v - h * 3600) / 60 ) ;

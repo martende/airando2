@@ -304,7 +304,10 @@ define([
     getGroupByAliance: function() {
       return this.groupBy('_groupByAliances','getAliances');
     },
-    
+    getGroupByGate: function() {
+      return this.groupBy('_groupByAliances','getAliances');
+    },
+
   });
 
   return flightsModel;

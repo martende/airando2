@@ -399,7 +399,7 @@ class RemoteNorvegianSpec extends BaseActorTester
     PatienceConfig(timeout = Span(60, Seconds), interval = Span(500, Millis))
 
   val fetcher = system.actorOf(Props(new actors.NorvegianAirlines(maxRepeats=1,noCache=true)))
-
+  
   test("HAM -> SVQ") {
     within (20 seconds) {
       fetcher ! actors.StartSearch(model.TravelRequest("HAM","SVQ",model.TravelType.Return,
@@ -434,7 +434,20 @@ class RemoteNorvegianSpec extends BaseActorTester
           assert ( tickets.length ==  2 ) 
           val mt = tickets.minBy(_.minPrice) 
           assert( mt.minPrice == 110.7f )
-          
+
+      }
+    }
+  }
+ 
+  test("BER -> OSL") {
+    within (20 seconds) {
+      fetcher ! actors.StartSearch(model.TravelRequest("BER","OSL",model.TravelType.OneWay,
+          "2015-03-23","2015-03-23",2,0,0,model.FlightClass.Economy))
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length ==  5 ) 
+          val mt = tickets.find(_.tuid == "201503231205SXF:201503231345OSL").get
+          assert( mt.minPrice == 105.4f )
       }
     }
   }

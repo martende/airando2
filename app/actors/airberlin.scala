@@ -28,7 +28,7 @@ class Airberlin(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
   val ID = Airberlin.ID
   val logger = Logger("Airberlin")
 
-  val pageLoadTimeout = 2 seconds
+  val pageLoadTimeout = 10 seconds
   val pageResultTimeout = 10 seconds
 
   def doRealSearch2(tr:model.TravelRequest) = {
