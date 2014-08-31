@@ -174,27 +174,23 @@ object Application extends Controller with CookieLang with Track {
   }
 
   val re = """from-([^-]+)-to-([^-]+)-at-(\d{8})(\d{8})?.html""".r
-  
+  val inpFormat = new java.text.SimpleDateFormat("yyyyMMdd")
+
   def flights(page:String) = {
     implicit request => 
   
     page match {
-      case re(nameFrom,nameTo,dateFrom,dateTo) => 
+      case re(nameFrom,nameTo,dateFrom,dateTo) =>
+        val currency = request.cookies.get("currency").map(_.value).getOrElse("eur")
         val iataFrom = "HEL"
         val iataTo   = "BER"
         val fltype   =  if ( dateTo == null ) TravelType.OneWay else TravelType.Return
-        val tr = model.TravelRequest(iataFrom,iataTo,
-        TravelType.OneWay,
-        DateTime.now().plusDays(3).toDate(),
-        DateTime.now().plusDays(10).toDate(),
-        1,0,0,FlightClass.Economy
-        ),
-        Airports.get("HEL").get,
-        Airports.get("BER"),
-        currency
-        )
+        val departure = inpFormat.parse(dateFrom)
+        val arrival   = if ( dateTo == null ) departure else  inpFormat.parse(dateTo)
+        val tr = model.TravelRequest(iataFrom,iataTo,fltype,arrival,departure,1,0,0,FlightClass.Economy)
 
-        Ok(views.html.result(tr,from,Airports.get(tr.iataTo),currency))
+        Ok(views.html.result(tr,Airports.get(iataFrom),Airports.get(iataTo),currency))
+
       case _ => NotFound.asInstanceOf[SimpleResult]
     }
   }
