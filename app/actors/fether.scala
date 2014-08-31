@@ -41,7 +41,7 @@ case class StartSearch(tr:model.TravelRequest)
 case class Refresh()
 case class Subscribe()
 case class Connected( enumerator: Enumerator[ JsValue ] )
-
+case class ConnectionFailed()
 
 class Supervisor extends Actor {
   import akka.actor.OneForOneStrategy
@@ -101,11 +101,12 @@ class ExternalGetter extends Actor {
   
   import model.{Flight,Ticket}
 
-  
+  var want2stop = false
 
 	def receive = {
 
     case StartSearch(tr) => 
+      val manager = sender 
       logger.info(s"StartSearch ${tr}")
 
       implicit val avaFormat = Json.format[AVSAirline]
@@ -152,16 +153,24 @@ class ExternalGetter extends Actor {
           }
 
           channel.end()
+          manager ! StoppedFetcher()
+          want2stop = true
+          //Akka.system.stop(self)
         case Failure(ex) => 
           logger.error("allFetchers - error occured: " +ex.getMessage)
           broadcast(Json.obj("error"->500))
           channel.end()
+          manager ! StoppedFetcher()
+          want2stop = true
       }
 
     case Subscribe() => 
-      sender ! Connected(
-        Enumerator.enumerate(buffer.reverse)  >>> enumerator
-      )
+      if ( ! want2stop )
+        sender ! Connected(
+          Enumerator.enumerate(buffer.reverse)  >>> enumerator
+        )
+      else 
+        sender ! ConnectionFailed()
 
     case unk => logger.error(s"Unknown signal $unk")
 	}
@@ -175,16 +184,19 @@ class ExternalGetter extends Actor {
 
 case class StartFetcher(tr:model.TravelRequest)
 case class GetTravelInfo(idx:Int)
+case class StoppedFetcher()
+case class GetActorRef(id:String)
 
 class ManagerActor extends Actor {
     var idx:Int = 0
 
     var requestMap = Map[model.TravelRequest,Int]()
     var idx2TravelRequest = Map[Int,model.TravelRequest]()
+    var actor2idx = Map[ActorRef,Int]()
 
     implicit val timeout = Timeout(Manager.fastTimeout)
 
-    private def newFetcher(tr:model.TravelRequest,start:Boolean=true) = {
+    private def newFetcher(tr:model.TravelRequest) = {
       
       idx+=1
       requestMap += tr -> idx
@@ -194,13 +206,23 @@ class ManagerActor extends Actor {
 
       Logger.info(s"Spawn search actor fetcherIdx:$idx for tr:$tr")
 
-      if (start) fetcher ! StartSearch(tr)
+      actor2idx += fetcher -> idx
+      fetcher ! StartSearch(tr)
 
       (idx,fetcher)
 
     }
 
     def receive = {
+        case StoppedFetcher() => 
+          val idx = actor2idx.get(sender).get
+          val tr  = idx2TravelRequest.get(idx).get
+          Logger.info(s"Actor $idx for $tr stopped")
+          actor2idx -= sender
+          idx2TravelRequest -= idx
+          requestMap -= tr 
+          sender ! akka.actor.PoisonPill
+
         case StartFetcher(tr) =>  
           val ret = requestMap.get(tr) match {
             case Some(fetcherIdx) => 
@@ -217,8 +239,18 @@ class ManagerActor extends Actor {
             case None => newFetcher(tr)
           }
           sender ! ret
+
         case GetTravelInfo(idx) => 
           sender ! idx2TravelRequest.get(idx)
+
+        case GetActorRef(fetcherIdx:String) => 
+          val myFutureStuff = Akka.system.actorSelection(s"akka://application/user/fetcher-${fetcherIdx}")
+
+          val aid:ActorIdentity = Await.result((
+            myFutureStuff ? Identify(1)).mapTo[ActorIdentity],
+            0.1 seconds)
+
+          sender ! aid.ref
     }
 }
 
@@ -230,7 +262,7 @@ object Manager {
   lazy val managerActor = Akka.system.actorOf(Props[ManagerActor],"manager")
   lazy val gatesActor = Akka.system.actorOf(Props[actors.GatesStorageActor],"GatesStorageActor")
   lazy val currencyActor = Akka.system.actorOf(Props[actors.CurrenciesStorageActor],"CurrencyStorageActor")
-  lazy val phantomIdCounter = Akka.system.actorOf(Props[actors.PhantomIdCounter],"PhantomIdCounter")
+  val phantomIdCounter = Akka.system.actorOf(Props[actors.PhantomIdCounter],"PhantomIdCounter")
 
   val fastTimeout = 0.1 seconds
 
@@ -322,7 +354,9 @@ object Manager {
 
   def nextPhantomId() = 
     //val idactor = utils.ActorUtils.selectActor[PhantomIdCounter]("PhantomIdCounter",Akka.system) 
-    fastAwait( (currencyActor ? 1 ).mapTo[Int] )
-  
+    fastAwait( (phantomIdCounter ? 1 ).mapTo[Int] )
+ 
+  def getActorRef(id:String) = 
+    fastAwait( (managerActor ? GetActorRef(id) ).mapTo[Option[ActorRef]] )   
 }
 

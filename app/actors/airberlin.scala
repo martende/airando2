@@ -38,18 +38,14 @@ class Airberlin(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
     val dst = tr.iataTo
     val departure = dformatter.format(tr.departure)
 
-    val r = PhantomExecutor.open("http://www.airberlin.com/en-DE/site/start.php",isDebug=false)
-
-    var Success(p) = try {
-      scala.concurrent.Await.result(r,pageLoadTimeout) 
-    } catch {
-      case ex:Throwable => 
-        logger.error( s"Parsing: $tr failed - fetching failed $ex" )
-        throw ex
-    }
+    val p = PhantomExecutor(isDebug=false)
 
     catchFetching(p,tr) {
-      
+
+      waitFor(pageLoadTimeout,"pageLoad") {
+        p.open("http://www.airberlin.com/en-DE/site/start.php")
+      }
+
     	// wait for autocomplete selectors
 
       scala.concurrent.Await.result({

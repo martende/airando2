@@ -10,6 +10,7 @@ define([
 
     pass: function(item) {
     	return this.passAirline(item) && this.passAliance(item)
+        && this.passGate(item)
         && this.passDepAirports(item) && this.passArvlAirports(item)
         && this.passStopAirports(item) && this.passStops(item) 
         && this.passDuration(item) && this.passPrice(item) 
@@ -43,6 +44,14 @@ define([
     		return this.containsAny(r,s);
     	}
     	return true;
+    },
+    passGate: function(item) {
+      var r = this.get('gate');
+      if ( r ) {
+        var s = item.getGatesSet();
+        return this.containsAny(r,s);
+      }
+      return true;
     },
     passAliance: function(item) {
       var r = this.get('aliance');

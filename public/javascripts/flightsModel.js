@@ -142,6 +142,7 @@ define([
       this._groupByArvlAirports = null;
       this._groupByStopAirports = null;
       this._groupByAliances = null;
+      this._groupByGates  = null;
     },
 
     getMinPriceObj: function() {
@@ -305,7 +306,7 @@ define([
       return this.groupBy('_groupByAliances','getAliances');
     },
     getGroupByGate: function() {
-      return this.groupBy('_groupByAliances','getAliances');
+      return this.groupBy('_groupByGates','getGates');
     },
 
   });

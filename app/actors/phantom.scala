@@ -352,7 +352,7 @@ object PhantomExecutor {
     }
 
 
-    def open(url:String,openTimeout:FiniteDuration = 10 seconds) {
+    def open(url:String,openTimeout:FiniteDuration = 10 seconds) = {
       
       ( ask(_fetcher,Start())(Timeout(openTimeout)) ).flatMap {
         case Started() => 
@@ -983,7 +983,7 @@ object PhantomExecutor {
     //def newBuilder = ListedSelector
   }
 
-  def apply(isDebug:Boolean=true,execTimeout:FiniteDuration=120 seconds) {
+  def apply(isDebug:Boolean=true,execTimeout:FiniteDuration=120 seconds) = {
     val idactor = utils.ActorUtils.selectActor[PhantomIdCounter]("PhantomIdCounter",Akka.system) 
     val idd = Manager.nextPhantomId()
     val fetcher = Akka.system.actorOf(props(isDebug=isDebug,execTimeout=execTimeout),name=s"PhantomExecutor-$idd")

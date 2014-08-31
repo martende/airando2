@@ -175,6 +175,32 @@ define([
       this._airlinesSet=ah;
       return ah;
     },
+    getGatesSet: function() {
+      if ( this._gatesSet ) return this._gatesSet;
+      var np = this.get("native_prices");
+      var ah = {};
+      for (k in np) {
+        ah[k]=1;
+      }
+      this._gatesSet=ah;
+      return ah;
+    },
+    getGates: function() {
+      if ( this._gates ) return this._gates;      
+      var a = _(this.get("native_prices")).keys();
+      var avsa = [];
+      var gates = this.collection.gates;
+
+      for ( var i = 0; i < a.length ; i++) {
+        avsa.push({
+          'id':a[i],
+          //'img':"/assets/images/avs/"+an+".png",
+          'name':gates[a[i]].label
+        });
+      }      
+      this._gates = avsa;
+      return this._gates ;
+    },
     getAirlines: function() {
       if ( this._airlines ) return this._airlines;
       var avs = {};
@@ -214,6 +240,7 @@ define([
       this._aliancesSet=ah;
       return ah;      
     },
+    
     getAliances: function() {
       if ( this._aliances ) return this._aliances;
 
@@ -257,6 +284,9 @@ define([
       this._directdur = null;
       this._avgdur = null;
       this._total = null;
+      this._gates = null;
+      this._gatesSet = null;
+      this._aliancesSet = null;
     }
 
   });

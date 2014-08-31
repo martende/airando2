@@ -79,7 +79,7 @@ trait Track extends Controller {
                 "fromTZ"   -> fromTZ,
                 "toTZ"   -> toTZ
               )  
-          }) 
+          })
         }
     
     def direct_flights_transform = (__ \ "direct_flights" ).json.update(flights_updater)
@@ -110,6 +110,9 @@ trait Track extends Controller {
           Future.successful(Ok(s"""<script type="text/javascript">parent.cb$cb({ok:0,error:"404",id:$id});</script>\n""").as("text/html"))
         case Some(fetcher) => 
           ( fetcher ? actors.Subscribe() ).map {      
+            case actors.ConnectionFailed() => 
+              Logger.error(s"Actor $id not found - connection phase")
+              Ok(s"""<script type="text/javascript">parent.cb$cb({ok:0,error:"404",id:$id});</script>\n""").as("text/html")
             case actors.Connected( enumerator ) => 
               Ok.chunked(
                 enumerator.map {
@@ -157,9 +160,11 @@ trait Track extends Controller {
                         "ok" -> 0
                       )  
                   }
-                  
-                  s"""<script type="text/javascript">parent.cb$cb({ok:1,data:$y});</script>\n"""
 
+                  if (y.fields.length == 1 && y.fields(0)._1 == "tickets" && y.fields(0)._2.as[JsArray].value.length == 0) {
+                    "\n"
+                  } else 
+                    s"""<script type="text/javascript">parent.cb$cb({ok:1,data:$y});</script>\n"""
                 } >>> 
                 Enumerator(s"""<script type="text/javascript">parent.cb$cb(null);</script>\n""")
               ).as("text/html")
