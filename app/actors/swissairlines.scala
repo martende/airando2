@@ -22,7 +22,7 @@ object SwissAirlines {
   val ID = "LX"
 } 
 
-class SwissAirlines(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
+class SwissAirlines(maxRepeats:Int=1,noCache:Boolean=false) extends SingleFetcherActor(maxRepeats,noCache)  {
   var idd = 0
   val ID = "LX"
   case class FlightInfo(trel:Selector,points:Seq[model.Flight]) {
@@ -42,23 +42,24 @@ class SwissAirlines(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
   import context.dispatcher
   import context.become
 
-  val logger = Logger("SwissAirlines")
-
-
   lazy val usd2eur = Manager.getCurrencyRatio("usd")
   lazy val chf2eur = Manager.getCurrencyRatio("chf")
+  lazy val nok2eur = Manager.getCurrencyRatio("nok")
+  
 
   def asPrice(d:String) = {
     val ratio = if (d.indexOf("CHF") != -1 ) {
       chf2eur
     } else if ( d.indexOf("USD") != -1 ) {
       usd2eur
+    } else if ( d.indexOf("NOK") != -1 ) {
+      nok2eur
     } else if ( d.indexOf("EUR") != -1 ) 1 else 
       throw new ParseException(s"Price format error: '$d'")
     
-    val r = """\d+[.0-9]*""".r
+    val r = """\d+[.0-9 ]*""".r
     r findFirstIn d.replace(",","").replace("'","").replace("\n","") match {
-      case Some(v) => v.replace(".","").toFloat * ratio
+      case Some(v) => v.replaceAll("[. ]","").toFloat * ratio
       case None    => throw new ParseException(s"Price format error: '$d'")
     }
   }
@@ -180,15 +181,15 @@ class SwissAirlines(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
         */
       }
 
-      //p.render(s"phantomjs/images/a-$idd.png")
+      //render(p,s"phantomjs/images/a-$idd.png")
       v.priceEl.$("input").click()
-      //p.render(s"phantomjs/images/b-$idd.png")
+      //render(p,s"phantomjs/images/b-$idd.png")
       waitFor(pageLoadTimeout,"priceChange") {
         p.waitForSelectorAttr(infoHeader,"dirty","",timeout = pageLoadTimeout * 2).recoverWith {
             case ex:Throwable => throw new ParseException(s"WaitForClickedPrice:$idd:$ex")
         }
       }
-      //p.render(s"phantomjs/images/c-$idd.png")
+      //render(p,s"phantomjs/images/c-$idd.png")
     }
                 
     submitButton.click()
@@ -275,20 +276,17 @@ class SwissAirlines(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
     val departure = dformatter.format(tr.departure)
     val arrival = dformatter.format(tr.arrival)
 
-    val r = actors.PhantomExecutor.open("http://www.swiss.com/de/en",isDebug=false,execTimeout=300 seconds)
 
-    var Success(p) = try {
-      scala.concurrent.Await.result(r,pageLoadTimeout) 
-    } catch {
-      case ex:Throwable => 
-        logger.error( s"Parsing: $tr failed - fetching failed $ex" )
-        throw ex
-    }
+    val p = PhantomExecutor(isDebug=false,execTimeout=300 seconds)
 
     var tidx = 0
 
     catchFetching(p,tr) {
       // wait for autocomplete selectors
+
+      waitFor(pageLoadTimeout,"pageLoad") {
+        p.open("http://www.swiss.com/de/en")
+      }
 
       scala.concurrent.Await.result({
         p.waitForSelector(p.$("#bookingbar-flight-subtab > form > div > div > div.l-right > button") , pageLoadTimeout * 2 ).recoverWith {

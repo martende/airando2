@@ -54,7 +54,7 @@ class CheapAir(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
   import context.dispatcher
   import context.become
 
-  val logger = Logger("CheapAir")
+  
   
   
 /*
@@ -307,7 +307,7 @@ class CheapAir(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
   }
 
   def getFlightInfos2(p:Page,curTime:java.util.Date) = { 
-    p.render(s"phantomjs/images/getFlightInfos2")
+    render(p,s"phantomjs/images/getFlightInfos2")
     p.$("#flList table.fltsItin").map {
       el:Selector =>  {
         val r = FlightInfo(el,getPoints2(el.$("table.leg").at(0),curTime))
@@ -522,7 +522,7 @@ class CheapAir(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
 
         waitUntilVisible(p,"#loadingBox")
         
-        p.render(s"phantomjs/images/r-$ii")
+        render(p,s"phantomjs/images/r-$ii")
         ii+=1
 
         if ( avlineTxt.indexOf("Multiple Airlines")!= -1 ) 
@@ -546,26 +546,26 @@ class CheapAir(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
       */
 
       
-      p.render(s"phantomjs/images/${this.getClass.getName}-ok.png")
+      render(p,s"phantomjs/images/${this.getClass.getName}-ok.png")
       p.close
 
       els.toSeq
 		} catch {
       case ex:NoFlightsException => 
         logger.info(s"Searching $tr flights are not availible" )
-        p.render(s"phantomjs/images/${this.getClass.getName}-warn.png")
+        render(p,s"phantomjs/images/${this.getClass.getName}-warn.png")
         p.close
         Seq()
 
       case ex:NotAvailibleDirecttion =>
         logger.info( s"Parsing: $tr no such direction")
-        p.render(s"phantomjs/images/${this.getClass.getName}-error.png")
+        render(p,s"phantomjs/images/${this.getClass.getName}-error.png")
         p.close
         Seq()
 
       case ex:Throwable => 
         logger.error( s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n") )
-        p.render(s"phantomjs/images/${this.getClass.getName}-error.png")
+        render(p,s"phantomjs/images/${this.getClass.getName}-error.png")
         p.close
         //self ! Complete()
         throw ex

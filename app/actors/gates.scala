@@ -2,7 +2,7 @@ package actors
 
 import play.api.libs.concurrent.Akka
 
-import akka.actor.{Actor,Props,Identify, ActorIdentity,ActorSystem,ActorRef,ActorLogging,Cancellable}
+import akka.actor.{Actor,Props,Identify, ActorIdentity,ActorSystem,ActorRef,Cancellable}
 
 import play.api.Logger
 import play.api.Play.current
@@ -33,7 +33,8 @@ import java.text.SimpleDateFormat
 
 import model.{Gate,TravelRequest,SearchResult,Ticket,Flight}
 
-class GatesStorageActor extends Actor with ActorLogging {
+class GatesStorageActor extends Actor  {
+    val logger = Logger("GatesStorageActor")
 
     var gatesMap:Map[String,Gate] = Map(
       "DY"->Gate("DY","eur","NorvegianAirlines"),
@@ -43,12 +44,16 @@ class GatesStorageActor extends Actor with ActorLogging {
       actors.CheapAir.ID->Gate(actors.CheapAir.ID,"usd","CheapAir")
     )
 
+    override def preStart = {
+      logger.debug("Started")
+    }
+
     def receive = {
-        case gateIds:Seq[Any] => 
+        case gateIds:Seq[Any] =>     
           if (!gateIds.isEmpty) gateIds.head match {
             case _:String  => sender ! gateIds.asInstanceOf[Seq[String]].flatMap {
               x => gatesMap.get(x).orElse {
-                log.error(s"$x Not found")
+                logger.error(s"$x Not found")
                 None
               }
             }
@@ -56,31 +61,61 @@ class GatesStorageActor extends Actor with ActorLogging {
               gatesMap += (g.id -> g)
             }
           } 
-        
+        case _ => logger.error(s"Unknown message")
     }
-}
-
-
-class CurrenciesStorageActor extends Actor {
-  var curMap:Map[String,Float] = Map()
-
-  override def preStart() {
-    Logger("CurrenciesStorageActor").info("Load currency db")
-    curMap = Map("chf"->1.0f,"usd"->1.0f,"eur"->1.0f)
-  }
-  
-  def receive = {
-    case item:(_,_)     => curMap = curMap + item.asInstanceOf[(String,Float)]
-    case items:Map[_,_] => curMap = curMap ++ items.asInstanceOf[Map[String,Float]]
-    case items:Seq[_]   => sender ! items.asInstanceOf[Seq[String]].map{ k => ( k -> curMap.get(k) ) }.toMap
-    case cur:String     => sender ! curMap.getOrElse(cur,akka.actor.Status.Failure(new Exception(s"Unknown currency $cur")))
-  }
-
 }
 
 import com.mongodb.casbah.Imports._
 import org.joda.time.DateTime
 import com.mongodb.casbah.commons.conversions.scala._
+
+
+class CurrenciesStorageActor extends Actor {
+  var curMap:Map[String,Float] = Map()
+  val mongoClient:MongoClient = MongoClient("localhost", 27017)
+  val db:MongoDB = mongoClient("airando2")
+  val collection = db("currency")
+
+  RegisterJodaTimeConversionHelpers()
+
+  override def preStart() {
+    import scala.collection.JavaConversions._
+    
+    curMap = collection.findOne() match {
+      case Some(v:DBObject) => 
+        v.flatMap {
+          case (k:String,v:AnyRef) => try {
+              Some( k -> v.toString.toFloat ) 
+            } catch {
+              case _:Exception => None
+            }
+        }.toMap
+      case None    => Map("chf"->1.0f,"usd"->1.0f,"eur"->1.0f)
+    }
+    
+    Logger("CurrenciesStorageActor").info("Load currency db")
+  }
+  
+  def receive = {
+    case item:(_,_)     =>
+      val ii = item.asInstanceOf[(String,Float)] 
+      curMap = curMap + ii
+      collection.update(MongoDBObject(),
+        MongoDBObject(
+          "$set" -> MongoDBObject(ii._1 -> ii._2)
+        ),upsert=true)
+    case items:Map[_,_] => 
+      val ii = items.asInstanceOf[Map[String,Float]]
+      curMap = curMap ++ ii
+      collection.update(MongoDBObject(),
+        MongoDBObject(
+          "$set" -> MongoDBObject(ii.toList)
+        ),upsert=true)
+    case items:Seq[_]   => sender ! items.asInstanceOf[Seq[String]].map{ k => ( k -> curMap.getOrElse(k,1.0f) ) }.toMap
+    case cur:String     => sender ! curMap.getOrElse(cur,akka.actor.Status.Failure(new Exception(s"Unknown currency $cur")))
+  }
+
+}
 
 trait DBApi {
   val mongoClient:MongoClient
@@ -187,11 +222,15 @@ trait DBApi {
 case class CacheResult(service:String,r:SearchResult)
 case class CacheRequest(service:String,tr:TravelRequest)
 
-class CacheStorageActor extends Actor with DBApi with ActorLogging {
-  
+class CacheStorageActor extends Actor with DBApi  {
+  val logger = Logger("CacheStorageActor")
   
   val mongoClient:MongoClient = MongoClient("localhost", 27017)
   val db:MongoDB = mongoClient("airando2")
+
+  override def preStart = {
+    logger.debug("Started")
+  }
 
   def receive = {
     case CacheResult(id,r) => 
@@ -199,7 +238,7 @@ class CacheStorageActor extends Actor with DBApi with ActorLogging {
     case CacheRequest(id,tr) => 
       val ret = get(id,tr)
       sender ! ret
-    case x => log.error(s"Unkwnown message $x")
+    case x => logger.error(s"Unkwnown message $x")
   }
 
 }

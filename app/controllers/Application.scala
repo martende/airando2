@@ -176,27 +176,44 @@ object Application extends Controller with CookieLang with Track {
   val re = """from-([^-]+)-to-([^-]+)-at-(\d{8})(\d{8})?.html""".r
   val inpFormat = new java.text.SimpleDateFormat("yyyyMMdd")
 
-  def flights(page:String) = {
+  def flights(page:String) = Action {
     implicit request => 
-  
+
+    val langVar:Lang = implicitly[Lang]
+
     page match {
       case re(nameFrom,nameTo,dateFrom,dateTo) =>
         val currency = request.cookies.get("currency").map(_.value).getOrElse("eur")
-        val iataFrom = "HEL"
-        val iataTo   = "BER"
-        val fltype   =  if ( dateTo == null ) TravelType.OneWay else TravelType.Return
-        val departure = inpFormat.parse(dateFrom)
-        val arrival   = if ( dateTo == null ) departure else  inpFormat.parse(dateTo)
-        val tr = model.TravelRequest(iataFrom,iataTo,fltype,arrival,departure,1,0,0,FlightClass.Economy)
+        val langCode = langVar.code
 
-        Ok(views.html.result(tr,Airports.get(iataFrom),Airports.get(iataTo),currency))
+        val slug2iata = Airports.slug2iata.getOrElse(langCode,Airports.slug2iata.get("en").get)
 
+        (slug2iata.get(nameFrom.toLowerCase),slug2iata.get(nameTo.toLowerCase)) match {
+          case (Some(iataFrom),Some(iataTo)) => 
+            val fltype   =  if ( dateTo == null ) TravelType.OneWay else TravelType.Return
+            val departure = inpFormat.parse(dateFrom)
+            val arrival   = if ( dateTo == null ) departure else  inpFormat.parse(dateTo)
+            val tr = model.TravelRequest(iataFrom,iataTo,fltype,arrival,departure,1,0,0,FlightClass.Economy)
+            val searchId = actors.Manager.startSearch(tr).toString
+            //implicit val l = langVar
+            //println(lang)
+            //println(implicitly[Lang].code)
+            Ok(views.html.result(tr,searchId,Airports.get(iataFrom).get,Airports.get(iataTo),currency)(langVar))
+
+          case r => 
+            Logger.error(s"flights page:$page mapto $r - Not Found")
+            NotFound.asInstanceOf[SimpleResult]
+        }
+
+        
+        
       case _ => NotFound.asInstanceOf[SimpleResult]
     }
   }
 
   def result(id:Int) = Action {
     implicit request => 
+    val currency = request.cookies.get("currency").map(_.value).getOrElse("eur");
     val defaultTravelInfo = //NotFound.asInstanceOf[SimpleResult]
       Ok(views.html.result(
         model.TravelRequest(
@@ -207,21 +224,21 @@ object Application extends Controller with CookieLang with Track {
         DateTime.now().plusDays(10).toDate(),
         1,0,0,FlightClass.Economy
         ),
+        id.toString,
         Airports.get("HEL").get,
         Airports.get("BER"),
         currency
         )
       )
     //getActorRef(id)
-    val currency = request.cookies.get("currency").map(_.value).getOrElse("eur");
-
+    
     actors.Manager.getTravelInfo(id).fold(
       defaultTravelInfo
     ) {
       tr => 
         Airports.get(tr.iataFrom).fold(NotFound.asInstanceOf[SimpleResult]) {
           from => 
-            Ok(views.html.result(tr,from,Airports.get(tr.iataTo),currency))
+            Ok(views.html.result(tr,id.toString,from,Airports.get(tr.iataTo),currency))
         }
     }
   }

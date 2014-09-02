@@ -42,7 +42,7 @@ object AviasalesConfig {
   val marker = "33313"
 }
 
-case class AviasalesSearchResult(tickets:Seq[model.Ticket],cur2eur:Map[String,Float],airlines:Seq[AVSAirline])
+case class AviasalesSearchResult(tickets:Seq[model.Ticket],airlines:Seq[AVSAirline])
 
 trait AvsCacheParserAPI extends CachingAPI with WithLogger {
   val logger = Logger("AvsCacheParser")
@@ -114,7 +114,6 @@ trait AvsCacheParserAPI extends CachingAPI with WithLogger {
     }
     
     ret
-    //println("AAAAA " + response)
   }
   def fetchRedirUrl(id:String) = {
     val Array(searchId,gateId) = id.split(":")
@@ -150,13 +149,11 @@ trait AvsParser {
       mseconds => 
       // TODO: - 3600000L WTF ?
       val d = new java.util.Date( ( mseconds ) *1000  - java.util.TimeZone.getDefault().getRawOffset() - 3600000L )
-      //println("DEPRT",d,mseconds)
       d
     } and
     (__ \ "arrival").read[Long].map {
       mseconds => 
         val d = new java.util.Date(mseconds *1000  - java.util.TimeZone.getDefault().getRawOffset()  - 3600000L)
-        //println("AVL",mseconds,mseconds*1000,d)
         Some(d)
     } and
     (__ \ "aircraft").readNullable[String] and
@@ -251,8 +248,9 @@ trait AvsParser {
     }
 
     updateGates(gates)
+    actors.Manager.updateCurrencies(cur2eur)
     
-    AviasalesSearchResult(data/*,gates*/,cur2eur,airlines)
+    AviasalesSearchResult(data,airlines)
 
   }
 }
@@ -264,7 +262,6 @@ class Aviasales(maxRepeats:Int=1,noCache:Boolean=false) extends BaseFetcherActor
   import context.become
 
   val ID = "AVS"
-  val logger = Logger("Aviasales")
   
   def receive = {
     case StartSearch(tr) => processSearch(sender,tr) {
@@ -274,7 +271,7 @@ class Aviasales(maxRepeats:Int=1,noCache:Boolean=false) extends BaseFetcherActor
   }
 
 
-  def complete(sender:ActorRef,tr:model.TravelRequest,sr:AviasalesSearchResult = AviasalesSearchResult(Seq(),Map(),Seq())  ) = {
+  def complete(sender:ActorRef,tr:model.TravelRequest,sr:AviasalesSearchResult = AviasalesSearchResult(Seq(),Seq())  ) = {
 
     logger.info(s"Search $tr: Completed: ${sr.tickets.length} tickets found")
 

@@ -46,7 +46,7 @@ class LocalAviasalesParser extends FunSuite {
       override def updateGates(gates:Seq[model.Gate]) = {}
     }
 
-    val actors.AviasalesSearchResult(data,curencies,avialines) = AVSParser.parse(d)
+    val actors.AviasalesSearchResult(data,avialines) = AVSParser.parse(d)
     val airberiln = data.filter { x => 
       x.direct_flights(0).airline == "AB"
     }
@@ -164,6 +164,9 @@ class BaseActorTester (_system: ActorSystem) extends akka.testkit.TestKit(_syste
   val p3 = actors.StartSearch(model.TravelRequest("FRA","JFK",model.TravelType.Return,
           "2015-03-21","2015-03-22",1,0,0,model.FlightClass.Economy))
 
+  val p4 = actors.StartSearch(model.TravelRequest("OSL","BER",model.TravelType.Return,
+          "2015-03-21","2015-03-22",1,0,0,model.FlightClass.Economy))
+
 
 }
 
@@ -179,10 +182,10 @@ class RemoteAviasalesSpec extends BaseActorTester
     within (60 seconds) {
       fetcher ! p3
       expectMsgPF() {
-        case t @ ( SearchResult(_,_) | actors.AviasalesSearchResult(_,_,_) ) => 
+        case t @ ( SearchResult(_,_) | actors.AviasalesSearchResult(_,_) ) => 
           val tickets = t match {
             case SearchResult(_,v) => v
-            case actors.AviasalesSearchResult(v,_,_) => v
+            case actors.AviasalesSearchResult(v,_) => v
           }
           assert ( tickets.length >  100 ) 
           val mt = tickets.minBy(_.minPrice) 
@@ -203,8 +206,8 @@ class RemoteSwissAirlinesSpec extends BaseActorTester
   implicit override def patienceConfig =
     PatienceConfig(timeout = Span(600, Seconds), interval = Span(500, Millis))
   
-  val fetcher = system.actorOf(Props(new actors.SwissAirlines(maxRepeats=1)))  
-  
+  val fetcher = system.actorOf(Props(new actors.SwissAirlines(maxRepeats=1,noCache=true)))  
+  /*
   test("p1") {
     //actors.Manager.updateCurrencies("chf"->1.0f)
     within (200 seconds) {
@@ -229,8 +232,11 @@ class RemoteSwissAirlinesSpec extends BaseActorTester
       }
     }
   }
+  */
 
   test("p3") {
+    //actors.Manager.updateCurrencies("usd"->1.0f)
+
     within (200 seconds) {
       fetcher ! p3
       expectMsgPF() {
@@ -242,7 +248,22 @@ class RemoteSwissAirlinesSpec extends BaseActorTester
       }
     }
   }
+  /*
+  test("p4") {
+    actors.Manager.updateCurrencies("nok"->1.0f)
 
+    within (200 seconds) {
+      fetcher ! p4
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 2515.0 )
+          
+      }
+    }
+  }
+  */
 }
 
 
@@ -475,6 +496,74 @@ class RemoteNorvegianSpec extends BaseActorTester
           assert ( tickets.length !=  0 ) 
           val mt = tickets.minBy(_.minPrice) 
           assert( mt.minPrice == 258.69f )
+      }
+    }
+  }
+  */
+}
+
+
+
+class RemoteRyanairSpec extends BaseActorTester
+  with ImplicitSender with ScalaFutures {
+
+  implicit override def patienceConfig =
+    PatienceConfig(timeout = Span(600, Seconds), interval = Span(500, Millis))
+  
+  val fetcher = system.actorOf(Props(new actors.Ryanair(maxRepeats=1,noCache=true)))  
+  /*
+  test("p1") {
+    //actors.Manager.updateCurrencies("chf"->1.0f)
+    within (200 seconds) {
+      fetcher ! p1
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length ==  0 ) 
+      }
+    }
+  }
+
+
+  test("p2") {
+    actors.Manager.updateCurrencies("chf"->1.0f)
+    within (200 seconds) {
+      fetcher ! p2
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 545.0 )
+      }
+    }
+  }
+  */
+
+  test("p3") {
+    //actors.Manager.updateCurrencies("usd"->1.0f)
+
+    within (200 seconds) {
+      fetcher ! p3
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 596.0 )
+          
+      }
+    }
+  }
+  /*
+  test("p4") {
+    actors.Manager.updateCurrencies("nok"->1.0f)
+
+    within (200 seconds) {
+      fetcher ! p4
+      expectMsgPF() {
+        case SearchResult(_,tickets) => 
+          assert ( tickets.length !=  0 ) 
+          val mt = tickets.minBy(_.minPrice) 
+          assert( mt.minPrice == 2515.0 )
+          
       }
     }
   }

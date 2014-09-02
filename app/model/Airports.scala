@@ -46,7 +46,7 @@ case class Ticket(
 ) {
   val dformatter = new java.text.SimpleDateFormat("yyyyMMddHHmm");
   
-  def minPrice = native_prices.values.min.toFloat
+  def minPrice = native_prices.values.min
 
   def p2tuid(points:Seq[model.Flight]) = {
     val parts = points.toSeq.map {
@@ -327,6 +327,39 @@ object Airports {
 			???
 	}
   
+  val langs = Seq("en","de","ru")
+
+  val slug2iata = (for ( lang <- langs ) yield {
+      var name2iata = Map[String,String]()
+      // for ( model.CityPOI(iata,_,_,_,name_en,_,_,_,_,_) <- model.Airports.data  ) {
+      for ( el <- model.Airports.data if el.isInstanceOf[model.CityPOI] ) {        
+        val iata = el.iata
+        val name = el.name(Lang(lang,"")).toLowerCase.replace(" ","_")
+        if (! name2iata.contains(name) )
+          name2iata += name -> iata
+      }
+      
+      for ( el <- model.Airports.data if el.isInstanceOf[model.Airport] ) {        
+        val iata = el.iata
+        val name = el.city(Lang(lang,"")).toLowerCase.replace(" ","_")
+        name match {
+          case _ if ! name2iata.contains(name) => name2iata += name -> iata
+          case _ => 
+            var i = 0
+            while ( name2iata.contains(name + "_" + i.toString) ) i+=1
+            name2iata += (name + "_" + i.toString) -> iata
+        }
+        
+      }
+      
+      lang -> name2iata
+
+    }).toMap
+
+  val iata2slug = slug2iata.map {
+    case (k,v) => k -> v.map(_.swap)
+  }
+
 	Logger.info(s"Airports loaded length=${data.length}")
 
   implicit object nearestOrdering extends Ordering[(Long,POI)] {

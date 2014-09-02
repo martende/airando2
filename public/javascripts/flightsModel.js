@@ -106,11 +106,22 @@ define([
       this.trigger("timetable");
 
     },
+    // om: original model , d : new data
     combineData: function(om,d) {
       var onp = om.get('native_prices');
       var onu = om.get('order_urls');
       _.extend(onp,d.native_prices);
       _.extend(onu,d.order_urls);
+      
+      var df0 = om.get('direct_flights');
+      var df1 = d.direct_flights;
+
+      for ( var i = 0 ; i < df0.length ; i++) {
+        if ( ! df0[i]['aircraft'] && i < df1.length && df1[i]['aircraft'] ) 
+          df0[i]['aircraft'] = df1[i]['aircraft'];
+        if ( ! df0[i]['arrival'] && i < df1.length && df1[i]['arrival'] ) 
+          df0[i]['arrival'] = df1[i]['arrival'];
+      }
       this.remove(om);
       om.reset();
       this.add(om);

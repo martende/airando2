@@ -32,6 +32,7 @@ import scala.util.{Try, Success, Failure}
 import model.SearchResult
 
 
+import play.api.i18n.Lang
 
 class ManagerSpec(_system: ActorSystem) extends TestKit(_system) 
   with ImplicitSender with WordSpecLike with ScalaFutures 
@@ -88,6 +89,10 @@ class ManagerSpec(_system: ActorSystem) extends TestKit(_system)
       assert(r == Some("PC"))
     }
 
+    "getgates" in {
+      val r = actors.Manager.getGates(Seq("DY"))
+    }
+    
   }
 
 

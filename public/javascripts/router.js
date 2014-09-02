@@ -19,6 +19,7 @@ define([
   var AppRouter = Backbone.Router.extend({
     routes: {
       'result/:resultid': 'result',
+      'flights/:path': 'result2',
       '': 'index'
     },
     
@@ -42,7 +43,23 @@ define([
       });
 
       m2.update();
-    }
+    },
+    
+    result2: function(path) {
+      var searchId = window.initData.searchId;
+      var m = new IndexModel(window.initData);
+      var m2 = new FlightsModel([],{idx:searchId,indexModel:m});
+
+      new ResultsView({
+        el:document,
+        model: m,
+        flightsModel:m2
+      });
+
+      m2.update();
+    },
+    
+
   });
 
   var initialize = function(){

@@ -62,7 +62,6 @@ class NorvegianAirlines(maxRepeats:Int=1,noCache:Boolean=false) extends SingleFe
   import context.dispatcher
   import context.become
 
-  val logger = Logger("NorvegianAirlines")
   val ID = NorvegianAirlines.ID
 
   var srcIatas:Set[String] = null
@@ -357,10 +356,6 @@ class NorvegianAirlines(maxRepeats:Int=1,noCache:Boolean=false) extends SingleFe
 
         }
         
-        p.render("phantomjs/images/norvegian1.png")      
-        
-        p.close
-
         fetchedTickets.toSeq
     }
     

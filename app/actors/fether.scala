@@ -117,9 +117,8 @@ class ExternalGetter extends Actor {
         val promise = Promise[Boolean]()
 
         fut.onComplete {
-          case Success(AviasalesSearchResult(tickets,curencies,airlines)) => 
+          case Success(AviasalesSearchResult(tickets,airlines)) => 
             logger.info(s"$fid returns: ${tickets.length} results")
-            broadcast(Json.obj("currency_rates" -> Json.toJson(curencies)))
             broadcast(Json.obj("airlines" -> Json.toJson(airlines)))
             broadcast(Json.obj("tickets" -> Json.toJson(tickets)))
             promise.success(true)
@@ -154,6 +153,7 @@ class ExternalGetter extends Actor {
 
           channel.end()
           manager ! StoppedFetcher()
+
           want2stop = true
           //Akka.system.stop(self)
         case Failure(ex) => 
@@ -193,9 +193,7 @@ class ManagerActor extends Actor {
     var requestMap = Map[model.TravelRequest,Int]()
     var idx2TravelRequest = Map[Int,model.TravelRequest]()
     var actor2idx = Map[ActorRef,Int]()
-
-    implicit val timeout = Timeout(Manager.fastTimeout)
-
+    implicit val timeout = Timeout(ManagerConfig.fastTimeout)
     private def newFetcher(tr:model.TravelRequest) = {
       
       idx+=1
@@ -219,11 +217,12 @@ class ManagerActor extends Actor {
           val tr  = idx2TravelRequest.get(idx).get
           Logger.info(s"Actor $idx for $tr stopped")
           actor2idx -= sender
-          idx2TravelRequest -= idx
+          //idx2TravelRequest -= idx
           requestMap -= tr 
           sender ! akka.actor.PoisonPill
 
         case StartFetcher(tr) =>  
+
           val ret = requestMap.get(tr) match {
             case Some(fetcherIdx) => 
               val myFutureStuff = Akka.system.actorSelection(s"akka://application/user/fetcher-${fetcherIdx}")
@@ -254,17 +253,22 @@ class ManagerActor extends Actor {
     }
 }
 
+object ManagerConfig {
+  val fastTimeout = 0.1 seconds
+
+}
 
 object Manager {
+  import ManagerConfig._
 
   val logger = Logger("Manager")
 
-  lazy val managerActor = Akka.system.actorOf(Props[ManagerActor],"manager")
-  lazy val gatesActor = Akka.system.actorOf(Props[actors.GatesStorageActor],"GatesStorageActor")
-  lazy val currencyActor = Akka.system.actorOf(Props[actors.CurrenciesStorageActor],"CurrencyStorageActor")
-  val phantomIdCounter = Akka.system.actorOf(Props[actors.PhantomIdCounter],"PhantomIdCounter")
+  val managerActor = Akka.system.actorOf(Props[ManagerActor],"manager")
+  val gatesActor = Akka.system.actorOf(Props[actors.GatesStorageActor],"GatesStorageActor")
+  val currencyActor = Akka.system.actorOf(Props[actors.CurrenciesStorageActor],"CurrencyStorageActor")
+  val phantomIdCounter = utils.ActorUtils.selectActor[PhantomIdCounter]("PhantomIdCounter",Akka.system)
+  //Akka.system.actorOf(Props[actors.PhantomIdCounter],"PhantomIdCounter")
 
-  val fastTimeout = 0.1 seconds
 
   def fastAwait[T](awaitable: Awaitable[T]) = try {
     Await.result(awaitable,fastTimeout)
@@ -277,9 +281,14 @@ object Manager {
 
   implicit val timeout = Timeout(fastTimeout)
   
-  def startSearch(tr:model.TravelRequest) = {    
+  def startSearch(tr:model.TravelRequest) = {
     val (fetcherId,fetcher) = fastAwait( (managerActor ? StartFetcher(tr)).mapTo[(Int,ActorRef)] )
     fetcherId
+  }
+
+  def startSearch2(tr:model.TravelRequest) = {
+    val (fetcherId,fetcher) = fastAwait( (managerActor ? StartFetcher(tr)).mapTo[(Int,ActorRef)] )
+    (fetcherId,fetcher)
   }
 
   def getTravelInfo(idx:Int) = {
@@ -350,6 +359,11 @@ object Manager {
 
   def getCurrencyRatio(cur:String) = {
     fastAwait( (currencyActor ? cur ).mapTo[Float] )
+  }
+
+  val allCurrencies = Seq("usd","eur","rub")
+  def getCurrencyRates() = {
+    fastAwait( (currencyActor ? allCurrencies ).mapTo[Map[String,Float]] )
   }
 
   def nextPhantomId() = 

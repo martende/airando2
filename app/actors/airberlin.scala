@@ -26,7 +26,6 @@ class Airberlin(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
   import context.dispatcher
 
   val ID = Airberlin.ID
-  val logger = Logger("Airberlin")
 
   val pageLoadTimeout = 10 seconds
   val pageResultTimeout = 10 seconds
@@ -222,10 +221,7 @@ class Airberlin(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
         tkts.flatten
 
       }
-        
-      p.render("phantomjs/images/airberlin1.png")
-      p.close
-      
+
       fetchedTickets.flatten.toSeq
       
 		}

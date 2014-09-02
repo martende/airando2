@@ -15,11 +15,11 @@ trait CookieLang extends Controller {
     val referrer = request.headers.get(REFERER).getOrElse(HOME_URL)
     localeForm.bindFromRequest.fold(
       errors => {
-        Logger.logger.debug("The lang can not be change error: " + errors.errors)
+        Logger.debug("The lang can not be change error: " + errors.errors)
         BadRequest(referrer)
       },
       lang => {
-        Logger.logger.debug("Change user lang to : " + lang)
+        Logger.debug("Change user lang to : " + lang)
         Redirect(referrer).withLang(Lang(lang)) // TODO Check if the lang is handled by the application
       })
   }

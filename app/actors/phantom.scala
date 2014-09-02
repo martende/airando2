@@ -55,7 +55,7 @@ class PhantomExecutor(_isDebug:Boolean,execTimeout:FiniteDuration = 120 seconds)
 
   override def postStop() {
     gonaDie = true
-    info("Actor stopped")
+    info(s"stopped url=$currentUrl")
     fatalPromise.trySuccess(1)
   }
 
@@ -320,16 +320,20 @@ object PhantomExecutor {
   )(ClientRect)
 
   class Page(_fetcher:ActorRef) {
+    var opened = true
     private def wrapException(x: => Unit) = try {
         x
       } catch {
         case e:Throwable => throw new AutomationException(s"failed: " + e.toString )
       }
 
-    private def evaljs[T](js:String,timeout:Duration = fastTimeout)(implicit r:Reads[T]):T = Await.result( (
+    private def evaljs[T](js:String,timeout:Duration = fastTimeout)(implicit r:Reads[T]):T = {
+      assert(opened)
+      Await.result( (
       _fetcher ? Eval(js)).mapTo[EvalResult].map {
           case EvalResult(hui) => Json.parse(hui.get).as[T](r)
       } , timeout)
+    }
 
     lazy val title:String = evaljs[String]("""page.evaluate(function() {return document.title;});""")
 
@@ -338,8 +342,12 @@ object PhantomExecutor {
       evaljs[Boolean](s"""page.evaluate(function(){"""+js.replaceAll("\n"," ")+""";return true;} );""")
     }
 
-    def stats = Await.result( (_fetcher ? Stats() ).mapTo[StatsResult] , fastTimeout)
+    def stats = {
+      assert(opened)
+      Await.result( (_fetcher ? Stats() ).mapTo[StatsResult] , fastTimeout)
+    }
 
+    // TODO: leave render2 renamed to render
     def render(_fname:String) = {
       val fname = if ( _fname.endsWith(".png") ) _fname.substring(0,_fname.length-4) else _fname
       try {
@@ -348,12 +356,19 @@ object PhantomExecutor {
       } catch {
         case ex:Throwable => Logger("PhantomExecutor").warn(s"Render page to $fname - failed Exception($ex")
       }
-
     }
 
+    def render2(_fname:String) = {
+      val fname = if ( _fname.endsWith(".png") ) _fname.substring(0,_fname.length-4) else _fname
+      try {
+        evaljs[Boolean](s"page.render('$fname.png');fs.write('$fname.html',page.content,'w');true;",5 seconds)
+      } catch {
+        case ex:Throwable => Logger("PhantomExecutor").warn(s"Render page to $fname - failed Exception($ex")
+      }
+    }
 
     def open(url:String,openTimeout:FiniteDuration = 10 seconds) = {
-      
+      assert(opened)
       ( ask(_fetcher,Start())(Timeout(openTimeout)) ).flatMap {
         case Started() => 
             (_fetcher ? OpenUrl(url)).mapTo[OpenUrlResult].map {
@@ -418,7 +433,7 @@ object PhantomExecutor {
     }
 
 
-    def selectJSSelect2(button:Selector,_targetEl: => Selector  , waitOpening:Boolean = false) {
+    def selectJSSelect2REMOVE(button:Selector,_targetEl: => Selector  , waitOpening:Boolean = false) {
       button.click()
       def invalidate(el : => Selector,cnt:Int,sleep:Duration):Selector = {
         try {
@@ -457,6 +472,8 @@ object PhantomExecutor {
     }
 
     def close() = {
+      assert(opened)
+      opened = false
       _fetcher ! akka.actor.PoisonPill
       //Akka.system.stop(_fetcher)
     }
@@ -490,6 +507,7 @@ object PhantomExecutor {
     def setDebug(isDebug:Boolean) = _fetcher ! SetDebug(isDebug)
     
     private def _waitForSelector(el:Selector,sellist:String,timeout:Duration) = {
+      assert(opened)
       val tms = Math.max(timeout.toMillis,100)
       val js = """
         var timeout = """+tms+""";
@@ -984,13 +1002,13 @@ object PhantomExecutor {
   }
 
   def apply(isDebug:Boolean=true,execTimeout:FiniteDuration=120 seconds) = {
-    val idactor = utils.ActorUtils.selectActor[PhantomIdCounter]("PhantomIdCounter",Akka.system) 
     val idd = Manager.nextPhantomId()
     val fetcher = Akka.system.actorOf(props(isDebug=isDebug,execTimeout=execTimeout),name=s"PhantomExecutor-$idd")
     new Page(fetcher)
   }
   //var openIdx = 1
 
+  // DEPRECATED
   def open(url:String,isDebug:Boolean=true,execTimeout:FiniteDuration=120 seconds,openTimeout:FiniteDuration = 10 seconds):Future[Try[Page]] = {
     //implicit val timeout = Timeout(60 seconds)
     val idactor = utils.ActorUtils.selectActor[PhantomIdCounter]("PhantomIdCounter",Akka.system) 

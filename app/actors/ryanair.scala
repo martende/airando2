@@ -18,11 +18,11 @@ import actors.PhantomExecutor.Selector
 import utils.Utils2.withClose
 import model.SearchResult
 
-object FlyTap {
-  val ID = "TP"
+object Ryanair {
+  val ID = "FR"
 }
 
-class FlyTap(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
+class Ryanair(maxRepeats:Int=1,noCache:Boolean=false) extends SingleFetcherActor(maxRepeats,noCache)  {
   var idd = 0
 
   case class FlightInfo(trel:Selector,points:Seq[model.Flight]) {
@@ -238,20 +238,38 @@ class FlyTap(maxRepeats:Int=1) extends SingleFetcherActor(maxRepeats)  {
     val departure = dformatter.format(tr.departure)
     val arrival = dformatter.format(tr.arrival)
 
-    val r = actors.PhantomExecutor.open("http://www.flytap.com/Deutschland/en/Homepage",isDebug=false,execTimeout=300 seconds)
-
-    var Success(p) = try {
-      scala.concurrent.Await.result(r,pageLoadTimeout*2) 
-    } catch {
-      case ex:Throwable => 
-        logger.error( s"Parsing: $tr failed - fetching failed $ex" )
-        throw ex
-    }
-
-    var tidx = 0
+    val p = PhantomExecutor(isDebug=false,execTimeout= 300 seconds)
 
     catchFetching(p,tr) {
+
+      waitFor(pageLoadTimeout,"pageLoad") {
+        p.open("http://www.ryanair.com/en/")
+      }
+
+      Thread.sleep(1000)
+
+      p.$("input[name=fromAirportName]").click()
+
+      val selForm = p.$(".airports-drop-down-menu").at(0)
+      testOn("inputSelectorFrom") { selForm.isVisible }
+
+      selForm.$("#all-countries").click()
       
+      //waitFor(pageLoadTimeout,"waitCountry") {
+      //  p.waitForSelector(p.$("div.countries-selector.pn-r > #at"),pageLoadTimeout*2)
+      //}
+
+      
+      // 
+
+      
+
+      p.$("input[name=fromAirportName]").highlight()
+
+      //Thread.sleep(5000)
+      render(p,"phantomjs/images/a1.png")
+
+      0/0
     	// wait for autocomplete selectors
 
       val airportsListFrom = p.$("#side_booking_flights .container_airports_flights_from a").re("airports list")

@@ -12,7 +12,7 @@ page.viewportSize = {
 };
 
 page.onConfirm = function(msg) {
-	console.log("confirmClicked: " + msg);
+	//console.log("confirmClicked: " + msg);
   	return true; // `true` === pressing the "OK" button, `false` === pressing the "Cancel" button
 };
 

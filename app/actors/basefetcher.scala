@@ -83,6 +83,8 @@ trait WithLogger {
 abstract class BaseFetcherActor(maxRepeats:Int,noCache:Boolean=false) extends Actor with WithLogger {
   val ID:String 
 
+  val logger = Logger(this.getClass.getName.replace("actors.","fetcher."))
+
   class NotAvailibleDirecttion extends Throwable;
 
   import sys.process._
@@ -198,6 +200,12 @@ abstract class BaseFetcherActor(maxRepeats:Int,noCache:Boolean=false) extends Ac
 
   // Util
 
+  def render(p:Page,fname:String) {
+    // TODO: rename to render
+    p.render2(fname)
+    logger.info(s"Render page to $fname - OK")
+  }
+
   def waitFor[T](timeout:Duration,what:String)(awaitable: scala.concurrent.Awaitable[T]) = {
     val t0 = System.nanoTime()
 
@@ -219,23 +227,26 @@ abstract class BaseFetcherActor(maxRepeats:Int,noCache:Boolean=false) extends Ac
 
   def catchFetching[T](p:Page,tr:model.TravelRequest)(x : => Seq[T]):Seq[T] = {
     try {
-      x
+      val ret = x
+      render(p,s"phantomjs/images/${this.getClass.getName}-ok")
+      p.close
+      ret
     } catch {
       case ex:NoFlightsException => 
         logger.info(s"Searching $tr flights are not availible" )
-        p.render(s"phantomjs/images/${this.getClass.getName}-warn.png")
+        render(p,s"phantomjs/images/${this.getClass.getName}-warn.png")
         p.close
         Seq()
 
       case ex:NotAvailibleDirecttion =>
         logger.info( s"Parsing: $tr no such direction")
-        p.render(s"phantomjs/images/${this.getClass.getName}-error.png")
+        render(p,s"phantomjs/images/${this.getClass.getName}-error.png")
         p.close
         Seq()
 
       case ex:Throwable => 
         logger.error( s"Parsing: $tr failed unkwnon exception $ex\n" + ex.getStackTrace().mkString("\n") )
-        p.render(s"phantomjs/images/${this.getClass.getName}-error.png")
+        render(p,s"phantomjs/images/${this.getClass.getName}-error.png")
         p.close
         //self ! Complete()
         throw ex
